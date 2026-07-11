@@ -30,6 +30,7 @@ models/
 # Experiment outputs (kept local; commit curated results only)
 experiment-docx-processing/out/
 experiments-rag-params/runs/
+rag/artifacts/
 *.log
 
 # OS / editor

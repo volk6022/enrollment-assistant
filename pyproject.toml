@@ -1,0 +1,23 @@
+[project]
+name = "enrollment-assistant-rag"
+version = "0.1.0"
+description = "Stage-1 RAG pipeline + experiments for the enrollment assistant (LangChain hybrid retrieval + reranker + local Qwen3.5)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "faiss-cpu>=1.8",
+    "httpx[socks]>=0.28.1",
+    "huggingface-hub[hf-transfer]>=1.23.0",
+    "numpy>=2.4.4",
+    "python-docx>=1.1.2",
+    "rank-bm25>=0.2.2",
+    "requests>=2.28.1",
+    "sentence-transformers>=5.6.0",
+    "socksio>=1.0.0",
+    "torch>=2.6.0",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu124"
