@@ -1,0 +1,39 @@
+# Secrets / local env
+.env
+*.env.local
+backend/config/contacts.json
+backend/config/document_registry.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# UV
+.uv/
+
+# Models / large artifacts (never commit weights)
+*.gguf
+*.safetensors
+*.bin
+models/
+.cache/
+
+# Experiment outputs (kept local; commit curated results only)
+experiment-docx-processing/out/
+experiments-rag-params/runs/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

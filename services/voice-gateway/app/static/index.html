@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voice demo — приемная комиссия</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>Голосовой тест SpeechKit</h1>
+    <p class="lead">Запишите вопрос голосом или загрузите аудиофайл. Сервис распознает речь через Yandex SpeechKit, отправит текст в backend и озвучит ответ через SpeechKit.</p>
+
+    <section class="card">
+      <div class="row gap">
+        <button id="startBtn">Начать запись</button>
+        <button id="stopBtn" disabled>Остановить</button>
+        <button id="sendBtn" disabled>Отправить запись</button>
+        <label class="upload">
+          <input id="fileInput" type="file" accept=".wav,.ogg,.mp3,audio/*" />
+          <span>Загрузить аудио</span>
+        </label>
+      </div>
+      <div class="status" id="status">Ожидание.</div>
+      <audio id="micPreview" controls></audio>
+    </section>
+
+    <section class="card">
+      <h2>Распознанный вопрос</h2>
+      <textarea id="transcript" rows="4" placeholder="Здесь появится распознанный текст"></textarea>
+      <div class="row gap top">
+        <button id="askTextBtn">Отправить как текст</button>
+        <button id="newSessionBtn">Новая сессия</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Ответ ассистента</h2>
+      <div id="answer" class="answer">—</div>
+      <audio id="answerAudio" controls></audio>
+      <details>
+        <summary>Технические данные</summary>
+        <pre id="meta"></pre>
+      </details>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
