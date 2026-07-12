@@ -51,10 +51,11 @@ class RagConfig:
     llm_port: int = 20055
     llm_ctx: int = 8192
     llm_ngl: int = 99
-    max_tokens: int = 400
-    temperature: float = 0.2
-    disable_thinking: bool = True   # Qwen3.5 is a reasoning model; thinking adds
-                                    # latency we don't want for a voice assistant
+    max_tokens: int = 200        # grid winner: 1.30s avg (vs 1.72s @ 400); 200 tokens
+                                 # sufficient for legal Q&A with appropriate fallbacks
+    temperature: float = 0.2      # grid winner: best quality/latency ratio
+    disable_thinking: bool = True # Qwen3.5 is a reasoning model; thinking adds
+                                  # latency we don't want for a voice assistant
 
     def hf_env(self) -> dict[str, str]:
         """Env for HuggingFace downloads: local cache + this box's SOCKS proxy."""
