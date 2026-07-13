@@ -174,16 +174,36 @@ def main():
                 return jsonify({"error": "transcript required"}), 400
             try:
                 r = pipe.answer(transcript)
+                gen = r.get("gen") or {}
+                # Full intermediate trace surfaced to the GUI "Технические данные" block.
+                meta = {
+                    "engine": "stage1-rag",
+                    "conversational": cfg.conversational,
+                    "transcript": transcript,
+                    "canonical_query": r.get("canonical_query"),
+                    "config": {"model": "Qwen3.5-2B.Q8_0", "max_tokens": cfg.max_tokens,
+                               "temperature": cfg.temperature, "fused_top": cfg.fused_top,
+                               "final_top": cfg.final_top, "n_chunks": len(pipe.idx.chunks)},
+                    "timings_ms": {k: round(v, 1) for k, v in r["timings"].items()},
+                    "generation": {
+                        "answer_tokens": gen.get("completion_tokens"),
+                        "prompt_tokens": gen.get("prompt_tokens"),
+                        "tps": round(gen["tps"], 1) if gen.get("tps") else None,
+                        "reasoning": gen.get("reasoning") or "",
+                    },
+                    "retrieval": [
+                        {"rank": i + 1, "source": c.get("source"), "point": c.get("point"),
+                         "section_path": c.get("section_path"),
+                         "rerank_score": round(c["rerank_score"], 4) if c.get("rerank_score") is not None else None,
+                         "rrf_score": round(c["rrf_score"], 5) if c.get("rrf_score") is not None else None,
+                         "text": c.get("text")}
+                        for i, c in enumerate(r.get("top_chunks") or [])
+                    ],
+                }
                 return jsonify({
                     "answer": r["answer"], "voice_answer": r["answer"], "tts_text": r["answer"],
                     "citations": r["citations"], "need_clarification": False,
-                    "meta": {
-                        "engine": "stage1-rag",
-                        "conversational": cfg.conversational,
-                        "canonical_query": r.get("canonical_query"),
-                        "latencies": {"search_ms": r["timings"].get("search_ms"),
-                                      "gen_ms": r["timings"].get("gen_ms")},
-                    },
+                    "meta": meta,
                 })
             except Exception as e:
                 return jsonify({"error": str(e)}), 500

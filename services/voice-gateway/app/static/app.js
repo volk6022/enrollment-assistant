@@ -144,7 +144,7 @@ async function sendAudio(blob, filename = 'recording.wav') {
   if (!res.ok) throw new Error(payload.detail || 'Ошибка voice-gateway');
   transcriptEl.value = payload.transcript || '';
   answerEl.textContent = payload.answer || payload.tts_text || '—';
-  metaEl.textContent = JSON.stringify(payload.meta || payload, null, 2);
+  metaEl.textContent = JSON.stringify(payload, null, 2);
   const played = await playAssistantAudio(payload);
   if (payload.audio_error) {
     setStatus('Ответ получен, но озвучка не удалась: ' + payload.audio_error);
@@ -168,7 +168,7 @@ async function sendText() {
   const payload = await res.json();
   if (!res.ok) throw new Error(payload.detail || 'Ошибка backend');
   answerEl.textContent = payload.answer || payload.tts_text || '—';
-  metaEl.textContent = JSON.stringify(payload.meta || payload, null, 2);
+  metaEl.textContent = JSON.stringify(payload, null, 2);
   const played = await playAssistantAudio(payload);
   if (payload.audio_error) {
     setStatus('Ответ получен, но озвучка не удалась: ' + payload.audio_error);
