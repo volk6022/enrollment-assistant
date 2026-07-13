@@ -24,6 +24,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import uuid
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -32,6 +34,12 @@ from rag.config import DEFAULT, RagConfig
 from rag.index import Indexes
 from rag.pipeline import Pipeline
 from rag.generate import LlamaServer
+
+# Greeting for the voice-gateway `/voice/start` handshake (spoken by TTS if wired).
+GREETING = (
+    "Здравствуйте. Вас приветствует голосовой ассистент приёмной комиссии. "
+    "Задайте, пожалуйста, ваш вопрос о поступлении."
+)
 
 
 def create_pipeline(cfg: RagConfig = DEFAULT) -> Pipeline:
@@ -43,7 +51,16 @@ def create_pipeline(cfg: RagConfig = DEFAULT) -> Pipeline:
     server = LlamaServer(cfg)
     server.start()
 
-    return Pipeline(idx, server=server, cfg=cfg)
+    pipe = Pipeline(idx, server=server, cfg=cfg)
+
+    # Warm up CUDA kernels (embedder + reranker + llama): the first real query
+    # otherwise costs ~26s while kernels compile. Discard the result.
+    print("Warming up (first-query CUDA compile)...")
+    try:
+        pipe.answer("тест")
+    except Exception as e:
+        print(f"  warmup skipped: {e}")
+    return pipe
 
 
 def answer_question(pipe: Pipeline, question: str) -> dict:
@@ -64,11 +81,15 @@ def main():
     parser = argparse.ArgumentParser(description="Enrollment Assistant backend (stage 1)")
     parser.add_argument("--listen", default="127.0.0.1:8000", help="Listen address:port")
     parser.add_argument("--mode", choices=["cli", "server"], default="cli", help="cli or server mode")
+    parser.add_argument("--conversational", action="store_true",
+                        help="enable spoken-input mode (rephrase + multi-query). "
+                             "Recommended when serving the voice-gateway web GUI.")
     args = parser.parse_args()
 
     # Build the pipeline
-    pipe = create_pipeline(DEFAULT)
-    print("✓ Pipeline ready\n")
+    cfg = replace(DEFAULT, conversational=True) if args.conversational else DEFAULT
+    pipe = create_pipeline(cfg)
+    print(f"✓ Pipeline ready (conversational={cfg.conversational})\n")
 
     if args.mode == "cli":
         # Interactive CLI mode
@@ -129,6 +150,49 @@ def main():
                 return jsonify(result)
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
+
+        # --- voice-gateway adapter: the web GUI (services/voice-gateway) talks to
+        # these endpoints. Maps its /voice/* contract onto this stage-1 pipeline so
+        # the client's existing GUI runs against the new RAG. TTS/STT stay in the
+        # gateway (Yandex) and fail gracefully; here we only serve text answers.
+        @app.route("/voice/start", methods=["POST"])
+        def voice_start():
+            data = request.get_json(silent=True) or {}
+            return jsonify({
+                "call_id": data.get("call_id") or uuid.uuid4().hex,
+                "session_id": data.get("session_id") or uuid.uuid4().hex,
+                "answer": GREETING, "voice_answer": GREETING, "tts_text": GREETING,
+                "citations": [], "need_clarification": False,
+                "meta": {"engine": "stage1-rag", "conversational": cfg.conversational},
+            })
+
+        @app.route("/voice/turn", methods=["POST"])
+        def voice_turn():
+            data = request.get_json(silent=True) or {}
+            transcript = (data.get("transcript") or "").strip()
+            if not transcript:
+                return jsonify({"error": "transcript required"}), 400
+            try:
+                r = pipe.answer(transcript)
+                return jsonify({
+                    "answer": r["answer"], "voice_answer": r["answer"], "tts_text": r["answer"],
+                    "citations": r["citations"], "need_clarification": False,
+                    "meta": {
+                        "engine": "stage1-rag",
+                        "conversational": cfg.conversational,
+                        "canonical_query": r.get("canonical_query"),
+                        "latencies": {"search_ms": r["timings"].get("search_ms"),
+                                      "gen_ms": r["timings"].get("gen_ms")},
+                    },
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+
+        @app.route("/voice/handoff", methods=["POST"])
+        def voice_handoff():
+            msg = "Соединяю вас с оператором приёмной комиссии."
+            return jsonify({"answer": msg, "voice_answer": msg, "tts_text": msg,
+                            "citations": [], "meta": {"engine": "stage1-rag", "handoff": True}})
 
         host, port = args.listen.split(":")
         print(f"Starting server on {host}:{port}")
