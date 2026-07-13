@@ -34,8 +34,12 @@ class RagConfig:
     rerank_batch_size: int = 64
 
     # chunking
-    max_chars: int = 1200
+    max_chars: int = 1200        # split threshold for a single over-long legal point
     overlap: int = 180
+    merge_chunk_chars: int = 900  # merge consecutive sibling point-chunks up to this
+                                  # size. Halves the count (~446 -> ~860 avg chars) and
+                                  # lifts quote_hit@3 +6pts / MRR 0.708->0.773 by cutting
+                                  # fragmentation (RESULTS.md chunk-size sweep). 0 = off.
 
     # retrieval
     bm25_top: int = 50
@@ -51,11 +55,21 @@ class RagConfig:
     llm_port: int = 20055
     llm_ctx: int = 8192
     llm_ngl: int = 99
-    max_tokens: int = 200        # grid winner: 1.30s avg (vs 1.72s @ 400); 200 tokens
-                                 # sufficient for legal Q&A with appropriate fallbacks
+    max_tokens: int = 200        # SAFETY cap, not a target: with the concise
+                                 # SYSTEM_PROMPT answers are ~70 tok and complete
+                                 # (0/32 truncated). Gen 0.79s avg / 1.13s p90.
+                                 # (The old "200 = grid winner" was a false win —
+                                 #  it was fast only because it cut 13/32 answers
+                                 #  mid-sentence; tps is flat ~120 regardless.)
     temperature: float = 0.2      # grid winner: best quality/latency ratio
     disable_thinking: bool = True # Qwen3.5 is a reasoning model; thinking adds
                                   # latency we don't want for a voice assistant
+
+    # conversational (spoken) input mode: rephrase the messy query to a clean
+    # canonical one, retrieve on BOTH (RRF-union), rerank with the canonical.
+    # Lifts src_recall@5 on spoken input 0.625 -> ~0.84 (see RESULTS.md, the
+    # "conv_multiquery_v3" arm). Costs one extra ~0.4s rephrase LLM call.
+    conversational: bool = False
 
     def hf_env(self) -> dict[str, str]:
         """Env for HuggingFace downloads: local cache + this box's SOCKS proxy."""

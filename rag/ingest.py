@@ -60,6 +60,33 @@ def _split_long(text: str, max_chars: int, overlap: int) -> list[str]:
     return out
 
 
+def merge_siblings(chunks: list[dict], target: int) -> list[dict]:
+    """Merge consecutive point-chunks (within one doc) up to `target` chars.
+
+    The base chunker emits one chunk per legal point (~446 chars avg), which
+    fragments context: the top-5 covers little text so the exact quote-chunk often
+    isn't ranked in. Merging sibling points to ~860 chars lifts quote_hit@3 +6pts
+    and MRR 0.708->0.773 (see experiments-rag-params/RESULTS.md chunk-size sweep).
+    Keeps the first point number of the group for citation. target=0 disables.
+    """
+    if not target:
+        return chunks
+    out: list[dict] = []
+    cur: dict | None = None
+    for c in chunks:
+        if cur is not None and len(cur["text"]) + len(c["text"]) + 1 <= target:
+            cur["text"] += "\n" + c["text"]
+            if not cur.get("point"):
+                cur["point"] = c.get("point")
+        else:
+            if cur is not None:
+                out.append(cur)
+            cur = dict(c)
+    if cur is not None:
+        out.append(cur)
+    return out
+
+
 def chunk_text(lines: list[str], max_chars: int, overlap: int) -> list[dict]:
     section_path: list[str] = []
     chunks: list[dict] = []
@@ -126,9 +153,10 @@ def build_chunks(cfg=DEFAULT) -> Path:
             lines = text.splitlines()
             doc_title = next((ln[3:].strip() for ln in lines if ln.startswith("## ")), meta["source"])
             n_docs += 1
-            for i, c in enumerate(chunk_text(lines, cfg.max_chars, cfg.overlap)):
-                if len(c["text"]) < 40:
-                    continue
+            doc_chunks = [c for c in chunk_text(lines, cfg.max_chars, cfg.overlap)
+                          if len(c["text"]) >= 40]
+            doc_chunks = merge_siblings(doc_chunks, cfg.merge_chunk_chars)
+            for i, c in enumerate(doc_chunks):
                 rec = {
                     "id": f"{n_docs:02d}-{i:04d}",
                     "text": c["text"],
