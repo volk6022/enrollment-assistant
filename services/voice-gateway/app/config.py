@@ -16,7 +16,7 @@ class Settings:
     # STT backend: "faster-whisper" (local, default) or "yandex" (SpeechKit fallback).
     stt_backend: str = os.getenv("VOICE_STT_BACKEND", "faster-whisper").lower()
     whisper_model: str = os.getenv("VOICE_WHISPER_MODEL", "large-v3-turbo")
-    whisper_device: str = os.getenv("VOICE_WHISPER_DEVICE", "cuda")
+    whisper_device: str = os.getenv("VOICE_WHISPER_DEVICE", "cpu")
     whisper_compute_type: str = os.getenv("VOICE_WHISPER_COMPUTE_TYPE", "int8")
     whisper_lang: str = os.getenv("VOICE_WHISPER_LANG", "ru")
     whisper_download_root: str = os.getenv("VOICE_WHISPER_DOWNLOAD_ROOT", "")

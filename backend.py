@@ -2,13 +2,15 @@
 
 Minimal API to query the enrollment assistant:
   - Loads the built indexes (FAISS + BM25)
-  - Starts a local llama.cpp server with Qwen2B
+  - Starts a local llama.cpp server with the model configured in rag/config.py
+    (rag.config.DEFAULT.llm_gguf -- currently Qwopus3.5-4B Q4_K_M, see
+    "что вообще предстоит ещё сделать.txt" for why it replaced Qwen3.5-2B)
   - Serves queries: question → search + rerank → generate answer + citations
 
-Optimized config (from grid tuning):
+Optimized config (from grid tuning, see experiments-rag-params/RESULTS.md for
+the Qwen3.5-2B-era numbers this was originally tuned against):
   - Search: bge-m3 hybrid + bge-reranker-v2-m3 (FP16), ~354ms
-  - Generation: Qwen3.5-2B, max_tokens=200, temp=0.2, reasoning disabled, ~1.3s
-  - End-to-end: ~1.7s (well under 2–3s target)
+  - Generation: max_tokens=200, temp=0.2, reasoning disabled
 
 Usage:
   # Start the backend (llama.cpp server + indexes)
@@ -214,7 +216,7 @@ def main():
                     "conversational": cfg.conversational,
                     "transcript": transcript,
                     "canonical_query": r.get("canonical_query"),
-                    "config": {"model": "Qwen3.5-2B.Q8_0", "max_tokens": cfg.max_tokens,
+                    "config": {"model": Path(cfg.llm_gguf).name, "max_tokens": cfg.max_tokens,
                                "temperature": cfg.temperature, "fused_top": cfg.fused_top,
                                "final_top": cfg.final_top, "n_chunks": len(pipe.idx.chunks)},
                     "timings_ms": {k: round(v, 1) for k, v in r["timings"].items()},

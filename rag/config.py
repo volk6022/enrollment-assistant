@@ -19,8 +19,17 @@ MODELS_DIR = REPO / "models"                      # HF cache (gitignored)
 
 # Local Qwen GGUFs + llama.cpp server binary
 LLAMA_SERVER = Path(r"C:\Users\bhunp\work-software\llama-cpp\llama-server.exe")
+# Active prod model: copied into the repo's own models/llm/ so the project is
+# self-contained (doesn't depend on the external G:\lmstudio LM Studio cache,
+# which other tools/sessions also read from). Won a semantic-judge comparison
+# against QWEN_2B/BONSAI_8B on answer quality (see experiments-rag-params/
+# runs/META_ANALYSIS.md) -- see "что вообще предстоит ещё сделать.txt".
+QWOPUS_4B = MODELS_DIR / "llm" / "Qwopus3.5-4B-Q4_K_M.gguf"
+# Other candidates evaluated alongside it, kept on the external LM Studio cache
+# since they're experiment-only now (not copied into the repo -- see above):
 QWEN_2B = Path(r"G:\lmstudio\models\Jackrong\Qwen3.5-2B-Claude-4.6-Opus-Reasoning-Distilled-GGUF\Qwen3.5-2B.Q8_0.gguf")
 QWEN_4B = Path(r"G:\lmstudio\models\Jackrong\Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-GGUF\Qwen3.5-4B.Q8_0.gguf")
+BONSAI_8B = Path(r"G:\lmstudio\models\prism-ml\Bonsai-8B-gguf\Bonsai-8B-Q1_0.gguf")
 
 
 @dataclass
@@ -33,7 +42,7 @@ class RagConfig:
                                     # negligible quality loss; embeddings cast to f32 for FAISS
     rerank_fp16: bool = True        # 254ms -> 93ms for 30 pairs on the 3060 Ti
     rerank_max_length: int = 256    # legal chunks; 256 tokens ≈ same speed as 192
-    rerank_batch_size: int = 64
+    rerank_batch_size: int = 32
 
     # chunking
     max_chars: int = 1200        # split threshold for a single over-long legal point
@@ -52,7 +61,11 @@ class RagConfig:
     final_top: int = 5       # chunks handed to the LLM
 
     # generation (llama.cpp server)
-    llm_gguf: str = str(QWEN_2B)
+    # RAG_LLM_GGUF_OVERRIDE lets one-off experiment scripts (compare_run.py, the
+    # semantic-judge new-model runs) point the production pipeline at a different
+    # GGUF without editing this default -- prod (pm2) never sets this env var, so
+    # the actual default here is what always runs live.
+    llm_gguf: str = os.getenv("RAG_LLM_GGUF_OVERRIDE", str(QWOPUS_4B))
     llm_host: str = "127.0.0.1"
     llm_port: int = 20055
     llm_ctx: int = 8192

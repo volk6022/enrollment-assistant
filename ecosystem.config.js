@@ -7,17 +7,15 @@
 // ── Service map ────────────────────────────────────────────────────────────────
 //   enroll-backend        127.0.0.1:8000   new Stage-1 RAG (Flask); /health /answer /voice/*
 //   enroll-voice-gateway  127.0.0.1:8010   client web GUI + STT/TTS orchestration (FastAPI)
-//   (llama-server)        127.0.0.1:20055  Qwen3.5-2B Q8 — SPAWNED INTERNALLY by backend.py
-//                                          (rag/generate.py LlamaServer), so it is NOT a pm2
-//                                          app here. See the commented block at the bottom to
-//                                          run it standalone instead.
+//   (llama-server)        127.0.0.1:20055  Qwopus3.5-4B Q4_K_M (see rag/config.py QWOPUS_4B,
+//                                          copied into the repo's own models/llm/) —
+//                                          SPAWNED INTERNALLY by backend.py (rag/generate.py
+//                                          LlamaServer), so it is NOT a pm2 app here. See the
+//                                          commented block at the bottom to run it standalone.
 //
-// ── Legacy client stack (docker-compose.yml, NOT pm2) — for reference only ──────
-//   qdrant 6333 · postgres 5432 · redis 6379 · pgadmin 5050 · legacy backend 8000
-//   The legacy backend and the new backend both use :8000 — run only one at a time.
-//
-// STT/TTS (Yandex SpeechKit) need YC_* keys; without them the gateway serves text
-// answers and TTS fails gracefully. Models are local (G:\lmstudio) — no proxy needed.
+// STT/TTS: local faster-whisper + Silero by default (see services/voice-gateway/app/config.py);
+// Yandex SpeechKit is an optional fallback needing YC_* keys — without them the gateway serves
+// text answers and local TTS still works.
 
 const UV = 'C:\\Users\\bhunp\\uv\\uv.exe';
 const REPO = 'E:/voice-agent/enrollment-assistant';
@@ -78,7 +76,7 @@ module.exports = {
     //   name: 'enroll-llama',
     //   script: 'C:\\Users\\bhunp\\work-software\\llama-cpp\\llama-server.exe',
     //   args: [
-    //     '-m', 'G:\\lmstudio\\models\\Jackrong\\Qwen3.5-2B-Claude-4.6-Opus-Reasoning-Distilled-GGUF\\Qwen3.5-2B.Q8_0.gguf',
+    //     '-m', 'E:\\voice-agent\\enrollment-assistant\\models\\llm\\Qwopus3.5-4B-Q4_K_M.gguf',
     //     '--host', '127.0.0.1', '--port', '20055',
     //     '-ngl', '99', '-c', '8192', '-fa', 'on', '--jinja', '--no-webui', '--reasoning', 'off',
     //   ].join(' '),
