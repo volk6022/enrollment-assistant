@@ -32,30 +32,42 @@ def main():
     pool = json.load(open(POOL, encoding="utf-8"))
 
     idx = Indexes()
-    server = LlamaServer(DEFAULT); server.start(); time.sleep(2)
+    log_path = RUNS / f"llama_compare_{label}_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    RUNS.mkdir(exist_ok=True)
+    server = LlamaServer(DEFAULT); server.start(log_path=str(log_path)); time.sleep(2)
+    print(f"[compare_run] llm_gguf={DEFAULT.llm_gguf}")
+    print(f"[compare_run] server log -> {log_path}")
     pipe = Pipeline(idx, server=server, cfg=DEFAULT)
+    t_warm = time.time()
     pipe.answer(pool[0]["question"])  # warmup (discarded)
+    print(f"[compare_run] warmup ok in {time.time() - t_warm:.1f}s")
 
     rows, all_search, all_gen, all_total, all_tok = [], [], [], [], []
-    for q in pool:
-        runs = []
-        for _ in range(repeats):
-            r = pipe.answer(q["question"])
-            t = r["timings"]; gen = r.get("gen") or {}
-            s_ms = round(t.get("search_ms", 0), 1); g_ms = round(t.get("gen_ms", 0), 1)
-            runs.append({"answer": r["answer"], "search_ms": s_ms, "gen_ms": g_ms,
-                         "total_ms": round(s_ms + g_ms, 1), "gen_tokens": gen.get("completion_tokens"),
-                         "citations": r.get("citations")})
-            all_search.append(s_ms); all_gen.append(g_ms); all_total.append(s_ms + g_ms)
-            all_tok.append(gen.get("completion_tokens") or 0)
-        answers = [x["answer"] for x in runs]
-        rows.append({
-            "id": q["id"], "question": q["question"], "topic": q.get("topic", ""),
-            "source_doc": q.get("source_doc", ""), "reference": q.get("reference", ""),
-            "answers": answers,                      # <- the 3 (or N) answers for column view
-            "stable": len(set(a.strip() for a in answers)) == 1,
-            "runs": runs,
-        })
+    try:
+        t_loop = time.time()
+        for qi, q in enumerate(pool):
+            runs = []
+            for _ in range(repeats):
+                r = pipe.answer(q["question"])
+                t = r["timings"]; gen = r.get("gen") or {}
+                s_ms = round(t.get("search_ms", 0), 1); g_ms = round(t.get("gen_ms", 0), 1)
+                runs.append({"answer": r["answer"], "search_ms": s_ms, "gen_ms": g_ms,
+                             "total_ms": round(s_ms + g_ms, 1), "gen_tokens": gen.get("completion_tokens"),
+                             "citations": r.get("citations")})
+                all_search.append(s_ms); all_gen.append(g_ms); all_total.append(s_ms + g_ms)
+                all_tok.append(gen.get("completion_tokens") or 0)
+            answers = [x["answer"] for x in runs]
+            rows.append({
+                "id": q["id"], "question": q["question"], "topic": q.get("topic", ""),
+                "source_doc": q.get("source_doc", ""), "reference": q.get("reference", ""),
+                "answers": answers,                      # <- the 3 (or N) answers for column view
+                "stable": len(set(a.strip() for a in answers)) == 1,
+                "runs": runs,
+            })
+            if (qi + 1) % 20 == 0:
+                print(f"    {qi + 1}/{len(pool)}  ({time.time() - t_loop:.0f}s)")
+    finally:
+        server.stop()
 
     n = len(all_total)
     agg = {
@@ -67,10 +79,9 @@ def main():
         "stable_pct": round(100*sum(1 for r in rows if r["stable"])/len(rows), 1),
     }
     out = {"meta": {"label": label, "index_chunks": len(idx.chunks),
-                    "model": "Qwen3.5-2B.Q8_0", "conversational": False,
+                    "model": DEFAULT.llm_gguf, "conversational": False,
                     "ts": time.strftime("%Y%m%d_%H%M%S")},
            "aggregate": agg, "rows": rows}
-    server.stop()
 
     RUNS.mkdir(exist_ok=True)
     fn = RUNS / f"compare_{label}_{out['meta']['ts']}.json"

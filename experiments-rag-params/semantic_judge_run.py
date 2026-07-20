@@ -273,6 +273,152 @@ def aggregate(results: list[dict]) -> dict:
     }
 
 
+NEW_DATASET_PATH = RUNS / "judge_dataset_new_latest.json"
+
+
+def build_new_model_units(srv: LocalServer, specs: list[tuple[str, Path]]) -> list[dict]:
+    """Build baseline-raw-only judge units for one or more NEW local models, each
+    already answered offline (see experiments-rag-params/new_model_answers.py) into
+    a compare_<label>_<ts>.json file (rows[i]["answers"][0] is used). Mirrors the
+    LOCAL_2B_MODEL slice of build_dataset() -- same rephrase + retrieval, just for
+    whichever models are being added this run. Assumes the baseline-raw index is
+    the one currently built in rag/artifacts (caller's job to rebuild_index first).
+    Loads Indexes()/Pipeline (embed+rerank models) -- MUST run in a separate
+    process from the judge LocalServer (see cmd_new_dataset / cmd_judge_add),
+    same VRAM-contention reason as the cmd_dataset/cmd_judge split above."""
+    pool = json.load(open(POOL, encoding="utf-8"))
+    answers_by_label = {}
+    for label, path in specs:
+        rows = json.load(open(path, encoding="utf-8"))["rows"]
+        answers_by_label[label] = {r["id"]: r["answers"][0] for r in rows}
+
+    print(f"[A'] rephrase (new models): {len(pool)} questions, no-think, np={srv.np} ...")
+    rephrase_cache: dict[str, str] = {}
+
+    def do_rephrase(q):
+        messages = [{"role": "system", "content": REPHRASE_SYSTEM}, *FEWSHOT,
+                    {"role": "user", "content": q}]
+        raw = srv.complete_no_think(messages, max_tokens=150)
+        return q, (_extract_question(raw) or q)
+
+    with ThreadPoolExecutor(max_workers=srv.np) as ex:
+        futs = [ex.submit(do_rephrase, q["question"]) for q in pool]
+        for f in as_completed(futs):
+            q, canon = f.result()
+            rephrase_cache[q] = canon
+
+    idx = Indexes()
+    pipe = Pipeline(idx, server=None, cfg=DEFAULT)
+    print(f"[B'] retrieval (new models) on baseline-raw: {len(pool)} questions, "
+          f"{len(idx.chunks)} chunks")
+    units = []
+    for q in pool:
+        top, _ = pipe.search(q["question"])
+        chunks = [{"source": c["source"], "point": c.get("point"), "text": c["text"]}
+                  for c in top]
+        base_unit = dict(id=q["id"], base="baseline-raw", question=q["question"],
+                          topic=q.get("topic", ""), reference=q.get("reference", ""),
+                          rephrase=rephrase_cache.get(q["question"], q["question"]),
+                          chunks=chunks)
+        for label, _ in specs:
+            ans = answers_by_label[label].get(q["id"])
+            if ans is None:
+                continue
+            units.append({**base_unit, "model": label, "answer": ans})
+    print(f"[B'] new-model dataset built: {len(units)} judge units")
+    return units
+
+
+def cmd_new_dataset(specs: list[tuple[str, Path]]):
+    """Phase 1 of judge-add, run in its OWN process (spawned by cmd_judge_add):
+    rephrase (small server) + retrieval (embed/rerank models loaded HERE only).
+    Writes judge_dataset_new_latest.json and exits -- exiting frees the VRAM
+    those models hold, same trick as cmd_dataset()."""
+    RUNS.mkdir(exist_ok=True)
+    srv = LocalServer(np=5, ctx=50000, port=20099)
+    srv.start(log_path=str(RUNS / f"llama_newdataset_np5_{time.strftime('%Y%m%d_%H%M%S')}.log"))
+    try:
+        units = build_new_model_units(srv, specs)
+    finally:
+        srv.stop()
+    NEW_DATASET_PATH.write_text(json.dumps(units, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"[new-dataset] wrote {len(units)} units -> {NEW_DATASET_PATH}")
+
+
+def cmd_judge_add(specs: list[tuple[str, Path]]):
+    """Judge one or more NEW local models (baseline-raw only, same protocol as
+    LOCAL_2B_MODEL) and MERGE the results into judge_results_latest.json instead
+    of overwriting it -- so the file keeps accumulating a comprehensive record
+    across every model evaluated so far, old runs included.
+
+    Two-process split (this orchestrator process never loads Indexes()/Pipeline
+    itself -- it only shells out for that phase and for rebuild_index -- so the
+    judge LocalServer below always gets full, uncontended VRAM):
+      1. subprocess: rebuild_index("baseline-raw") + rephrase + retrieval, exits.
+      2. here: judge LocalServer (np=5, ctx=50000) loaded fresh, judges the new
+         units, then merges with the existing judge_results_latest.json.
+
+    Usage: uv run python experiments-rag-params/semantic_judge_run.py judge-add \
+        label1=runs/compare_label1_TS.json [label2=runs/compare_label2_TS.json ...]
+    """
+    RUNS.mkdir(exist_ok=True)
+    print("[judge-add] rebuilding baseline-raw index (retrieval must match what "
+          "these models actually saw) ...")
+    rebuild_index("baseline-raw")
+
+    print("[judge-add] building new-model dataset in an isolated subprocess "
+          "(embed/rerank models must not share VRAM with the judge server) ...")
+    specs_args = [f"{label}={path}" for label, path in specs]
+    subprocess.run([sys.executable, str(Path(__file__).resolve()), "new-dataset", *specs_args],
+                    check=True, cwd=str(REPO))
+    units = json.loads(NEW_DATASET_PATH.read_text(encoding="utf-8"))
+
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    srv = LocalServer(np=5, ctx=50000, port=20099)
+    srv.start(log_path=str(RUNS / f"llama_judgeadd_np5_{ts}.log"))
+    try:
+        new_results = run_judge(srv, units)
+    finally:
+        srv.stop()
+
+    latest_path = RUNS / "judge_results_latest.json"
+    prior_results = []
+    if latest_path.exists():
+        prior_results = json.loads(latest_path.read_text(encoding="utf-8"))["results"]
+    prior_keys = {unit_key(r) for r in prior_results}
+    new_keys = {unit_key(r) for r in new_results}
+    overlap = prior_keys & new_keys
+    if overlap:
+        print(f"[judge-add] {len(overlap)} unit(s) already present in judge_results_latest.json "
+              f"-- new results for these keys replace the old ones")
+    merged = [r for r in prior_results if unit_key(r) not in new_keys] + new_results
+
+    agg = aggregate(merged)
+    out_path = RUNS / f"judge_results_{ts}.json"
+    payload = {"meta": {"ts": ts, "n": len(merged),
+                         "note": f"cumulative: {len(prior_results)} prior + "
+                                 f"{len(new_results)} added this run "
+                                 f"({', '.join(l for l, _ in specs)})"},
+               "aggregate": agg, "results": merged}
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    latest_path.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    if PARTIAL_PATH.exists():
+        PARTIAL_PATH.unlink()
+
+    print(f"\n=== AGGREGATE (cumulative, n={len(merged)}) ===")
+    print(f"parse failures: {agg['n_parse_fail']}/{agg['n_total']}")
+    print("\nby model:")
+    for m, s in agg["by_model"].items():
+        print(f"  {m:28s} n={s['n']:4d}  rephrase={s['rephrase']}  chunks={s['chunks']}  answer={s['answer']}")
+    print("\nby base:")
+    for b, s in agg["by_base"].items():
+        print(f"  {b:14s} n={s['n']:4d}  rephrase={s['rephrase']}  chunks={s['chunks']}  answer={s['answer']}")
+    print("\nby base x model:")
+    for k, s in sorted(agg["by_base_model"].items()):
+        print(f"  {k:42s} n={s['n']:4d}  rephrase={s['rephrase']}  chunks={s['chunks']}  answer={s['answer']}")
+    print(f"\n-> {out_path.name} (judge_results_latest.json updated in place)")
+
+
 def cmd_dataset():
     """Phase A+B only: rephrase (small server) + retrieval (embed/rerank models
     loaded in THIS process). Writes judge_dataset_latest.json and exits -- exiting
@@ -337,6 +483,16 @@ if __name__ == "__main__":
         cmd_dataset()
     elif cmd == "judge":
         cmd_judge()
+    elif cmd in ("judge-add", "new-dataset"):
+        specs = []
+        for arg in sys.argv[2:]:
+            label, _, path = arg.partition("=")
+            if not path:
+                raise SystemExit(f"bad spec {arg!r}, expected label=path/to/compare_*.json")
+            specs.append((label, Path(path)))
+        if not specs:
+            raise SystemExit(f"{cmd} needs at least one label=path spec")
+        cmd_judge_add(specs) if cmd == "judge-add" else cmd_new_dataset(specs)
     else:
         cmd_dataset()
         cmd_judge()
