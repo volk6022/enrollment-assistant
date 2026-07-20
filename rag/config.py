@@ -29,6 +29,8 @@ class RagConfig:
     embed_model: str = "BAAI/bge-m3"
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     device: str = "cuda"
+    embed_fp16: bool = True         # bge-m3 in FP16: −1.13 GB VRAM (2.27 -> 1.13 GB),
+                                    # negligible quality loss; embeddings cast to f32 for FAISS
     rerank_fp16: bool = True        # 254ms -> 93ms for 30 pairs on the 3060 Ti
     rerank_max_length: int = 256    # legal chunks; 256 tokens ≈ same speed as 192
     rerank_batch_size: int = 64
@@ -70,6 +72,12 @@ class RagConfig:
     # Lifts src_recall@5 on spoken input 0.625 -> ~0.84 (see RESULTS.md, the
     # "conv_multiquery_v3" arm). Costs one extra ~0.4s rephrase LLM call.
     conversational: bool = False
+
+    # emotion/intonation control: when True the LLM inlines [q]/[emp]/[pause]… markers
+    # that the TTS turns into Silero SSML prosody. The displayed answer is stripped of
+    # markers; the TTS text keeps them. Off by default (a few extra tokens + needs the
+    # marker-aware TTS path). See rag/generate.py EMOTION_PROMPT_SNIPPET.
+    emotion_tags: bool = False
 
     def hf_env(self) -> dict[str, str]:
         """Env for HuggingFace downloads: local cache + this box's SOCKS proxy."""

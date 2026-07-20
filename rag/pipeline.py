@@ -10,7 +10,7 @@ import time
 
 from rag.config import DEFAULT, RagConfig
 from rag.embed import embed_query
-from rag.generate import LlamaServer, build_messages
+from rag.generate import LlamaServer, build_messages, strip_markers
 from rag.index import Indexes
 from rag.rephrase import rephrase_canonical
 from rag.rerank import rerank
@@ -111,16 +111,19 @@ class Pipeline:
         else:
             top, t = self.search(query)
         gen = {}
-        answer = ""
+        answer = ""            # display/text answer (markers stripped)
+        answer_raw = ""        # TTS answer (keeps emotion markers if any)
         if self.server is not None:
-            messages = build_messages(query, top)  # generate on the ORIGINAL query
+            messages = build_messages(query, top, self.cfg)  # generate on the ORIGINAL query
             gen = self.server.complete(messages, self.cfg)
-            answer = gen["answer"]
+            answer_raw = gen["answer"]
+            answer = strip_markers(answer_raw)  # no-op when there are no markers
             t["gen_ms"] = gen["gen_sec"] * 1000
         return {
             "canonical_query": canonical,
             "question": query,
             "answer": answer,
+            "answer_raw": answer_raw,
             "citations": [
                 {"source": c["source"], "point": c.get("point"), "rerank_score": c.get("rerank_score")}
                 for c in top

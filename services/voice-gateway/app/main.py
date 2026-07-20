@@ -18,13 +18,19 @@ from .config import settings
 from .metrics import metrics
 from .prompts import DEFAULT_GREETING, HANDOFF_PROMPT
 from .stt_client import SpeechKitShortAudioSTTClient
+from .faster_whisper_stt import FasterWhisperSTTClient
 from .tts_client import SpeechKitTTSClient
+from .silero_tts import SileroTTSClient
 
 logger = logging.getLogger("voice-gateway")
 app = FastAPI(title="DVUI Voice Gateway", version="10.2.1")
 backend = BackendClient()
-stt = SpeechKitShortAudioSTTClient()
-tts = SpeechKitTTSClient()
+# STT backend selected by config: local faster-whisper (default) or Yandex (fallback).
+stt = (FasterWhisperSTTClient() if settings.stt_backend == "faster-whisper"
+       else SpeechKitShortAudioSTTClient())
+# TTS backend selected by config: local Silero (default) or Yandex SpeechKit (fallback).
+tts = SileroTTSClient() if settings.tts_backend == "silero" else SpeechKitTTSClient()
+logger.info("STT backend: %s | TTS backend: %s", settings.stt_backend, settings.tts_backend)
 cache_dir = Path(settings.cache_dir)
 cache_dir.mkdir(parents=True, exist_ok=True)
 static_dir = Path(__file__).parent / "static"
@@ -101,6 +107,29 @@ def _attach_tts(call_id: str, result: dict, state: CallSessionState) -> dict:
         result["tts_status"] = "failed"
         result["audio_error"] = str(exc)
     return result
+
+
+@app.on_event("startup")
+async def _warmup_models() -> None:
+    """Load STT + TTS in a background thread at boot so the first real request
+    isn't hit by the one-time model load (~80s). Health stays up meanwhile."""
+    import asyncio
+
+    def _warm() -> None:
+        try:
+            tts.synthesize("Прогрев синтеза речи.")
+            logger.info("TTS warmup done")
+        except Exception:
+            logger.exception("TTS warmup failed")
+        try:
+            import numpy as np
+            silence = np.zeros(16000, dtype=np.int16).tobytes()
+            stt.recognize_bytes(silence, sample_rate_hertz=16000, audio_format="lpcm")
+            logger.info("STT warmup done")
+        except Exception:
+            logger.exception("STT warmup failed")
+
+    asyncio.get_event_loop().run_in_executor(None, _warm)
 
 
 @app.get("/health")

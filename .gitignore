@@ -25,12 +25,15 @@ env/
 *.safetensors
 *.bin
 models/
+vosk_models/
 .cache/
 
 # Experiment outputs (kept local; commit curated results only)
 experiment-docx-processing/out/
 experiments-rag-params/runs/
+experiment-tts/grid_audio/
 rag/artifacts/
+.voice-cache/
 *.log
 
 # OS / editor

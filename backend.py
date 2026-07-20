@@ -84,12 +84,17 @@ def main():
     parser.add_argument("--conversational", action="store_true",
                         help="enable spoken-input mode (rephrase + multi-query). "
                              "Recommended when serving the voice-gateway web GUI.")
+    parser.add_argument("--emotion", action="store_true",
+                        help="enable emotion/intonation markers ([q]/[emp]/[pause]…) in "
+                             "the answer for the marker-aware TTS (SSML prosody).")
     args = parser.parse_args()
 
     # Build the pipeline
-    cfg = replace(DEFAULT, conversational=True) if args.conversational else DEFAULT
+    cfg = replace(DEFAULT,
+                  conversational=args.conversational or DEFAULT.conversational,
+                  emotion_tags=args.emotion or DEFAULT.emotion_tags)
     pipe = create_pipeline(cfg)
-    print(f"✓ Pipeline ready (conversational={cfg.conversational})\n")
+    print(f"✓ Pipeline ready (conversational={cfg.conversational}, emotion_tags={cfg.emotion_tags})\n")
 
     if args.mode == "cli":
         # Interactive CLI mode
@@ -137,6 +142,34 @@ def main():
         @app.route("/health", methods=["GET"])
         def health():
             return jsonify({"status": "ok"})
+
+        @app.route("/gpu", methods=["GET"])
+        def gpu():
+            """Real torch CUDA allocations for THIS process (embedder+reranker only;
+            llama-server is a separate C++ process). allocated = live tensors,
+            reserved = torch caching-allocator pool (reserved-allocated = reclaimable)."""
+            import torch
+            if not torch.cuda.is_available():
+                return jsonify({"error": "cuda not available"})
+            mb = 1024 * 1024
+            return jsonify({
+                "allocated_mb": round(torch.cuda.memory_allocated() / mb, 1),
+                "reserved_mb": round(torch.cuda.memory_reserved() / mb, 1),
+                "max_allocated_mb": round(torch.cuda.max_memory_allocated() / mb, 1),
+                "max_reserved_mb": round(torch.cuda.max_memory_reserved() / mb, 1),
+                "reclaimable_mb": round((torch.cuda.memory_reserved() - torch.cuda.memory_allocated()) / mb, 1),
+            })
+
+        @app.route("/gpu/empty_cache", methods=["POST"])
+        def gpu_empty_cache():
+            import torch
+            mb = 1024 * 1024
+            before = torch.cuda.memory_reserved() / mb
+            torch.cuda.empty_cache()
+            after = torch.cuda.memory_reserved() / mb
+            return jsonify({"reserved_before_mb": round(before, 1),
+                            "reserved_after_mb": round(after, 1),
+                            "freed_mb": round(before - after, 1)})
 
         @app.route("/answer", methods=["POST"])
         def answer():
@@ -200,8 +233,12 @@ def main():
                         for i, c in enumerate(r.get("top_chunks") or [])
                     ],
                 }
+                # answer/voice_answer = clean text (markers stripped) for display;
+                # tts_text keeps emotion markers so the marker-aware TTS can use them.
+                clean = r["answer"]
+                tts_text = r.get("answer_raw") or clean
                 return jsonify({
-                    "answer": r["answer"], "voice_answer": r["answer"], "tts_text": r["answer"],
+                    "answer": clean, "voice_answer": clean, "tts_text": tts_text,
                     "citations": r["citations"], "need_clarification": False,
                     "meta": meta,
                 })

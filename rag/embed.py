@@ -20,7 +20,15 @@ def get_embedder(cfg: RagConfig = DEFAULT):
         os.environ.setdefault("HF_HOME", cfg.hf_env()["HF_HOME"])
         from sentence_transformers import SentenceTransformer
 
-        _MODEL = SentenceTransformer(cfg.embed_model, device=cfg.device)
+        # FP16 halves bge-m3's VRAM (~2.27 -> ~1.13 GB) on CUDA with negligible quality
+        # loss; embeddings are cast back to float32 for FAISS in embed().
+        model_kwargs = {}
+        if cfg.embed_fp16 and cfg.device != "cpu":
+            model_kwargs["torch_dtype"] = "float16"
+        _MODEL = SentenceTransformer(
+            cfg.embed_model, device=cfg.device,
+            model_kwargs=model_kwargs or None,
+        )
     return _MODEL
 
 

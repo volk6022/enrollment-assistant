@@ -20,7 +20,7 @@
 // answers and TTS fails gracefully. Models are local (G:\lmstudio) — no proxy needed.
 
 const UV = 'C:\\Users\\bhunp\\uv\\uv.exe';
-const REPO = 'C:/Users/bhunp/Documents/voice-agent/enrollment-assistant';
+const REPO = 'E:/voice-agent/enrollment-assistant';
 
 module.exports = {
   apps: [
@@ -42,8 +42,15 @@ module.exports = {
     },
     {
       name: 'enroll-voice-gateway',
-      script: UV,
-      args: 'run uvicorn app.main:app --host 127.0.0.1 --port 8010',
+      // Runs directly against the ROOT project's venv (E:\voice-agent\
+      // enrollment-assistant\.venv) -- services/voice-gateway has no venv of its
+      // own, it shares the RAG project's. `uv run uvicorn ...` from the gateway
+      // subdir fails with "Failed to canonicalize script path" (uv 0.9.13 can't
+      // resolve the uvicorn.exe entry-point when uv.exe itself lives on a
+      // different drive than the project, C: vs E:). Calling the venv's
+      // python.exe directly sidesteps uv's entry-point resolution entirely.
+      script: REPO + '/.venv/Scripts/python.exe',
+      args: '-m uvicorn app.main:app --host 127.0.0.1 --port 8010',
       cwd: REPO + '/services/voice-gateway',
       interpreter: 'none',
       autorestart: true,

@@ -7,3 +7,21 @@ python-multipart==0.0.9
 redis==5.0.7
 grpcio==1.66.1
 grpcio-tools==1.66.1
+
+# --- Local Silero TTS backend (VOICE_TTS_BACKEND=silero, the default) ---
+# Runs on CPU by default. For a slim CPU deploy install the CPU torch wheel:
+#   pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu
+# DEPLOY NOTE: the Silero bundle (torch.hub) and the RUAccent model download on
+# first use — give the container internet at first boot and a persistent cache
+# (VOICE_SILERO_CACHE_DIR on a mounted volume) so restarts don't re-download.
+torch==2.4.1
+numpy==1.26.4
+scipy==1.13.1
+soxr==0.5.0.post1
+ruaccent==1.5.8.3
+
+# --- Local faster-whisper STT backend (VOICE_STT_BACKEND=faster-whisper, default) ---
+# large-v3-turbo int8 on CUDA (VOICE_WHISPER_DEVICE=cuda). CTranslate2 needs the CUDA
+# runtime + cuDNN available; on a CPU-only host set VOICE_WHISPER_DEVICE=cpu.
+# Model weights download on first use (see VOICE_WHISPER_DOWNLOAD_ROOT for a cache).
+faster-whisper==1.2.1

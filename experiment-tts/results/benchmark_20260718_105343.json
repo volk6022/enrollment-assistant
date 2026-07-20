@@ -1,0 +1,1122 @@
+{
+  "run_id": "20260718_105343",
+  "device": "cpu",
+  "results": [
+    {
+      "model": "silero-xenia-24k",
+      "device": "cpu",
+      "load_time_s": 2.527,
+      "vram_after_load_mb": 0.0,
+      "ram_after_load_mb": 489.2,
+      "sentences": [
+        {
+          "text": "Добрый день, чем могу помочь?",
+          "audio_duration_s": 1.938,
+          "synthesis_time_s": 11.086,
+          "ttfa_s": 11.086,
+          "rtf": 5.7219,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 748.4,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Документы принимаются до тридцать первого июля.",
+          "audio_duration_s": 2.65,
+          "synthesis_time_s": 0.648,
+          "ttfa_s": 0.648,
+          "rtf": 0.2444,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 776.5,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Вступительные испытания начинаются второго августа.",
+          "audio_duration_s": 2.737,
+          "synthesis_time_s": 0.15,
+          "ttfa_s": 0.15,
+          "rtf": 0.0549,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 792.7,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Зачисление проводится по конкурсу баллов ЕГЭ.",
+          "audio_duration_s": 2.688,
+          "synthesis_time_s": 0.142,
+          "ttfa_s": 0.142,
+          "rtf": 0.053,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 796.0,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Позвоните нам в рабочее время, пожалуйста.",
+          "audio_duration_s": 2.163,
+          "synthesis_time_s": 0.145,
+          "ttfa_s": 0.145,
+          "rtf": 0.0671,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 797.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления на юридический факультет вам необходимо предоставить аттестат о …",
+          "audio_duration_s": 8.088,
+          "synthesis_time_s": 0.455,
+          "ttfa_s": 0.455,
+          "rtf": 0.0562,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 823.1,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в п…",
+          "audio_duration_s": 7.438,
+          "synthesis_time_s": 0.371,
+          "ttfa_s": 0.371,
+          "rtf": 0.0499,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 831.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Заявление о приёме документов можно подать лично в приёмную комиссию, а также че…",
+          "audio_duration_s": 7.463,
+          "synthesis_time_s": 0.366,
+          "ttfa_s": 0.366,
+          "rtf": 0.049,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 841.2,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для иностранных граждан предусмотрена отдельная квота мест, порядок поступления …",
+          "audio_duration_s": 7.938,
+          "synthesis_time_s": 0.345,
+          "ttfa_s": 0.345,
+          "rtf": 0.0434,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 849.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Льготы при поступлении предоставляются детям-сиротам, инвалидам первой и второй …",
+          "audio_duration_s": 8.613,
+          "synthesis_time_s": 0.496,
+          "ttfa_s": 0.496,
+          "rtf": 0.0576,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 866.0,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления в Российский государственный университет правосудия на очную фор…",
+          "audio_duration_s": 20.938,
+          "synthesis_time_s": 0.87,
+          "ttfa_s": 0.87,
+          "rtf": 0.0415,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 925.0,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Конкурс на бюджетные места проводится на основании суммы баллов единого государс…",
+          "audio_duration_s": 18.05,
+          "synthesis_time_s": 4.089,
+          "ttfa_s": 4.089,
+          "rtf": 0.2266,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1060.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, …",
+          "audio_duration_s": 15.175,
+          "synthesis_time_s": 3.47,
+          "ttfa_s": 3.47,
+          "rtf": 0.2286,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1144.0,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Целевой приём на юридический факультет осуществляется на основании договора о це…",
+          "audio_duration_s": 18.262,
+          "synthesis_time_s": 0.931,
+          "ttfa_s": 0.931,
+          "rtf": 0.051,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1171.0,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Оригинал документа об образовании необходимо предоставить лично не позднее чем з…",
+          "audio_duration_s": 16.55,
+          "synthesis_time_s": 3.618,
+          "ttfa_s": 3.618,
+          "rtf": 0.2186,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1267.3,
+          "sample_rate": 24000,
+          "audio_file": null
+        }
+      ],
+      "streaming_test": {
+        "sentences": 5,
+        "total_time_s": 2.218,
+        "avg_ttfa_s": 0.4396,
+        "total_audio_duration_s": 22.725,
+        "overall_rtf": 0.0976
+      },
+      "avg_rtf": 0.4776,
+      "avg_ttfa_s": 1.8121,
+      "error": null
+    },
+    {
+      "model": "silero-aidar-24k",
+      "device": "cpu",
+      "load_time_s": 1.442,
+      "vram_after_load_mb": 0.0,
+      "ram_after_load_mb": 1190.3,
+      "sentences": [
+        {
+          "text": "Добрый день, чем могу помочь?",
+          "audio_duration_s": 1.85,
+          "synthesis_time_s": 12.636,
+          "ttfa_s": 12.636,
+          "rtf": 6.8305,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1261.0,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Документы принимаются до тридцать первого июля.",
+          "audio_duration_s": 3.288,
+          "synthesis_time_s": 0.225,
+          "ttfa_s": 0.225,
+          "rtf": 0.0683,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1269.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Вступительные испытания начинаются второго августа.",
+          "audio_duration_s": 3.612,
+          "synthesis_time_s": 0.177,
+          "ttfa_s": 0.177,
+          "rtf": 0.0491,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1279.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Зачисление проводится по конкурсу баллов ЕГЭ.",
+          "audio_duration_s": 3.3,
+          "synthesis_time_s": 0.799,
+          "ttfa_s": 0.799,
+          "rtf": 0.2421,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1299.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Позвоните нам в рабочее время, пожалуйста.",
+          "audio_duration_s": 2.6,
+          "synthesis_time_s": 0.636,
+          "ttfa_s": 0.636,
+          "rtf": 0.2446,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1310.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления на юридический факультет вам необходимо предоставить аттестат о …",
+          "audio_duration_s": 10.4,
+          "synthesis_time_s": 2.31,
+          "ttfa_s": 2.31,
+          "rtf": 0.2221,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1424.5,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в п…",
+          "audio_duration_s": 9.475,
+          "synthesis_time_s": 2.365,
+          "ttfa_s": 2.365,
+          "rtf": 0.2496,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1482.2,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Заявление о приёме документов можно подать лично в приёмную комиссию, а также че…",
+          "audio_duration_s": 9.463,
+          "synthesis_time_s": 0.661,
+          "ttfa_s": 0.661,
+          "rtf": 0.0698,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1496.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для иностранных граждан предусмотрена отдельная квота мест, порядок поступления …",
+          "audio_duration_s": 10.238,
+          "synthesis_time_s": 0.492,
+          "ttfa_s": 0.492,
+          "rtf": 0.048,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1499.4,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Льготы при поступлении предоставляются детям-сиротам, инвалидам первой и второй …",
+          "audio_duration_s": 10.95,
+          "synthesis_time_s": 2.615,
+          "ttfa_s": 2.615,
+          "rtf": 0.2388,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1580.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления в Российский государственный университет правосудия на очную фор…",
+          "audio_duration_s": 26.225,
+          "synthesis_time_s": 6.177,
+          "ttfa_s": 6.177,
+          "rtf": 0.2355,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1828.1,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Конкурс на бюджетные места проводится на основании суммы баллов единого государс…",
+          "audio_duration_s": 21.837,
+          "synthesis_time_s": 1.442,
+          "ttfa_s": 1.442,
+          "rtf": 0.066,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1854.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, …",
+          "audio_duration_s": 19.637,
+          "synthesis_time_s": 1.069,
+          "ttfa_s": 1.069,
+          "rtf": 0.0545,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1845.4,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Целевой приём на юридический факультет осуществляется на основании договора о це…",
+          "audio_duration_s": 23.575,
+          "synthesis_time_s": 5.184,
+          "ttfa_s": 5.184,
+          "rtf": 0.2199,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 1985.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Оригинал документа об образовании необходимо предоставить лично не позднее чем з…",
+          "audio_duration_s": 20.225,
+          "synthesis_time_s": 4.763,
+          "ttfa_s": 4.763,
+          "rtf": 0.2355,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2084.1,
+          "sample_rate": 24000,
+          "audio_file": null
+        }
+      ],
+      "streaming_test": {
+        "sentences": 5,
+        "total_time_s": 4.023,
+        "avg_ttfa_s": 0.8012,
+        "total_audio_duration_s": 27.763,
+        "overall_rtf": 0.1449
+      },
+      "avg_rtf": 0.605,
+      "avg_ttfa_s": 2.7701,
+      "error": null
+    },
+    {
+      "model": "silero-baya-24k",
+      "device": "cpu",
+      "load_time_s": 1.439,
+      "vram_after_load_mb": 0.0,
+      "ram_after_load_mb": 2077.7,
+      "sentences": [
+        {
+          "text": "Добрый день, чем могу помочь?",
+          "audio_duration_s": 1.962,
+          "synthesis_time_s": 15.249,
+          "ttfa_s": 15.249,
+          "rtf": 7.7702,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2107.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Документы принимаются до тридцать первого июля.",
+          "audio_duration_s": 3.138,
+          "synthesis_time_s": 0.229,
+          "ttfa_s": 0.229,
+          "rtf": 0.073,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2112.2,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Вступительные испытания начинаются второго августа.",
+          "audio_duration_s": 3.425,
+          "synthesis_time_s": 0.848,
+          "ttfa_s": 0.848,
+          "rtf": 0.2476,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2114.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Зачисление проводится по конкурсу баллов ЕГЭ.",
+          "audio_duration_s": 3.138,
+          "synthesis_time_s": 0.062,
+          "ttfa_s": 0.062,
+          "rtf": 0.0197,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2123.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Позвоните нам в рабочее время, пожалуйста.",
+          "audio_duration_s": 2.712,
+          "synthesis_time_s": 0.148,
+          "ttfa_s": 0.148,
+          "rtf": 0.0546,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2124.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления на юридический факультет вам необходимо предоставить аттестат о …",
+          "audio_duration_s": 10.1,
+          "synthesis_time_s": 2.219,
+          "ttfa_s": 2.219,
+          "rtf": 0.2198,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2215.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в п…",
+          "audio_duration_s": 9.262,
+          "synthesis_time_s": 0.492,
+          "ttfa_s": 0.492,
+          "rtf": 0.0531,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2224.7,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Заявление о приёме документов можно подать лично в приёмную комиссию, а также че…",
+          "audio_duration_s": 9.088,
+          "synthesis_time_s": 0.603,
+          "ttfa_s": 0.603,
+          "rtf": 0.0664,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2226.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для иностранных граждан предусмотрена отдельная квота мест, порядок поступления …",
+          "audio_duration_s": 10.025,
+          "synthesis_time_s": 2.302,
+          "ttfa_s": 2.302,
+          "rtf": 0.2296,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2294.4,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Льготы при поступлении предоставляются детям-сиротам, инвалидам первой и второй …",
+          "audio_duration_s": 10.713,
+          "synthesis_time_s": 0.551,
+          "ttfa_s": 0.551,
+          "rtf": 0.0514,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2314.4,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления в Российский государственный университет правосудия на очную фор…",
+          "audio_duration_s": 25.375,
+          "synthesis_time_s": 5.531,
+          "ttfa_s": 5.531,
+          "rtf": 0.218,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2542.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Конкурс на бюджетные места проводится на основании суммы баллов единого государс…",
+          "audio_duration_s": 21.9,
+          "synthesis_time_s": 4.815,
+          "ttfa_s": 4.815,
+          "rtf": 0.2199,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2643.5,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, …",
+          "audio_duration_s": 18.65,
+          "synthesis_time_s": 4.029,
+          "ttfa_s": 4.029,
+          "rtf": 0.216,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2720.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Целевой приём на юридический факультет осуществляется на основании договора о це…",
+          "audio_duration_s": 22.887,
+          "synthesis_time_s": 1.531,
+          "ttfa_s": 1.531,
+          "rtf": 0.0669,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2756.7,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Оригинал документа об образовании необходимо предоставить лично не позднее чем з…",
+          "audio_duration_s": 19.225,
+          "synthesis_time_s": 4.439,
+          "ttfa_s": 4.439,
+          "rtf": 0.2309,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2858.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        }
+      ],
+      "streaming_test": {
+        "sentences": 5,
+        "total_time_s": 4.199,
+        "avg_ttfa_s": 0.8383,
+        "total_audio_duration_s": 27.375,
+        "overall_rtf": 0.1534
+      },
+      "avg_rtf": 0.6491,
+      "avg_ttfa_s": 2.8699,
+      "error": null
+    },
+    {
+      "model": "silero-kseniya-24k",
+      "device": "cpu",
+      "load_time_s": 1.46,
+      "vram_after_load_mb": 0.0,
+      "ram_after_load_mb": 2850.9,
+      "sentences": [
+        {
+          "text": "Добрый день, чем могу помочь?",
+          "audio_duration_s": 1.775,
+          "synthesis_time_s": 10.849,
+          "ttfa_s": 10.849,
+          "rtf": 6.1123,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2876.5,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Документы принимаются до тридцать первого июля.",
+          "audio_duration_s": 3.062,
+          "synthesis_time_s": 0.176,
+          "ttfa_s": 0.176,
+          "rtf": 0.0575,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2882.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Вступительные испытания начинаются второго августа.",
+          "audio_duration_s": 3.263,
+          "synthesis_time_s": 0.175,
+          "ttfa_s": 0.175,
+          "rtf": 0.0537,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2886.7,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Зачисление проводится по конкурсу баллов ЕГЭ.",
+          "audio_duration_s": 3.138,
+          "synthesis_time_s": 0.074,
+          "ttfa_s": 0.074,
+          "rtf": 0.0237,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2887.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Позвоните нам в рабочее время, пожалуйста.",
+          "audio_duration_s": 2.362,
+          "synthesis_time_s": 0.193,
+          "ttfa_s": 0.193,
+          "rtf": 0.0818,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2889.7,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления на юридический факультет вам необходимо предоставить аттестат о …",
+          "audio_duration_s": 9.588,
+          "synthesis_time_s": 0.555,
+          "ttfa_s": 0.555,
+          "rtf": 0.0579,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2906.4,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в п…",
+          "audio_duration_s": 8.938,
+          "synthesis_time_s": 0.395,
+          "ttfa_s": 0.395,
+          "rtf": 0.0442,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2909.3,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Заявление о приёме документов можно подать лично в приёмную комиссию, а также че…",
+          "audio_duration_s": 8.7,
+          "synthesis_time_s": 1.948,
+          "ttfa_s": 1.948,
+          "rtf": 0.2239,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 2981.4,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для иностранных граждан предусмотрена отдельная квота мест, порядок поступления …",
+          "audio_duration_s": 9.5,
+          "synthesis_time_s": 2.035,
+          "ttfa_s": 2.035,
+          "rtf": 0.2142,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3036.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Льготы при поступлении предоставляются детям-сиротам, инвалидам первой и второй …",
+          "audio_duration_s": 10.188,
+          "synthesis_time_s": 0.506,
+          "ttfa_s": 0.506,
+          "rtf": 0.0496,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3041.8,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления в Российский государственный университет правосудия на очную фор…",
+          "audio_duration_s": 24.525,
+          "synthesis_time_s": 5.379,
+          "ttfa_s": 5.379,
+          "rtf": 0.2193,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3272.7,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Конкурс на бюджетные места проводится на основании суммы баллов единого государс…",
+          "audio_duration_s": 21.062,
+          "synthesis_time_s": 0.789,
+          "ttfa_s": 0.789,
+          "rtf": 0.0374,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3279.5,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, …",
+          "audio_duration_s": 17.825,
+          "synthesis_time_s": 3.928,
+          "ttfa_s": 3.928,
+          "rtf": 0.2204,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3329.6,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Целевой приём на юридический факультет осуществляется на основании договора о це…",
+          "audio_duration_s": 21.725,
+          "synthesis_time_s": 4.79,
+          "ttfa_s": 4.79,
+          "rtf": 0.2205,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3477.1,
+          "sample_rate": 24000,
+          "audio_file": null
+        },
+        {
+          "text": "Оригинал документа об образовании необходимо предоставить лично не позднее чем з…",
+          "audio_duration_s": 18.288,
+          "synthesis_time_s": 0.877,
+          "ttfa_s": 0.877,
+          "rtf": 0.0479,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3498.9,
+          "sample_rate": 24000,
+          "audio_file": null
+        }
+      ],
+      "streaming_test": {
+        "sentences": 5,
+        "total_time_s": 2.462,
+        "avg_ttfa_s": 0.4908,
+        "total_audio_duration_s": 26.425,
+        "overall_rtf": 0.0932
+      },
+      "avg_rtf": 0.511,
+      "avg_ttfa_s": 2.1779,
+      "error": null
+    },
+    {
+      "model": "piper-ru_RU-irina-medium",
+      "device": "cpu",
+      "load_time_s": 4.718,
+      "vram_after_load_mb": 0.0,
+      "ram_after_load_mb": 3540.1,
+      "sentences": [
+        {
+          "text": "Добрый день, чем могу помочь?",
+          "audio_duration_s": 2.473,
+          "synthesis_time_s": 0.206,
+          "ttfa_s": 0.206,
+          "rtf": 0.0832,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3598.5,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Документы принимаются до тридцать первого июля.",
+          "audio_duration_s": 3.425,
+          "synthesis_time_s": 0.4,
+          "ttfa_s": 0.4,
+          "rtf": 0.1167,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3624.6,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Вступительные испытания начинаются второго августа.",
+          "audio_duration_s": 3.437,
+          "synthesis_time_s": 0.286,
+          "ttfa_s": 0.286,
+          "rtf": 0.0831,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3624.8,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Зачисление проводится по конкурсу баллов ЕГЭ.",
+          "audio_duration_s": 3.251,
+          "synthesis_time_s": 0.259,
+          "ttfa_s": 0.259,
+          "rtf": 0.0796,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3624.9,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Позвоните нам в рабочее время, пожалуйста.",
+          "audio_duration_s": 3.077,
+          "synthesis_time_s": 0.246,
+          "ttfa_s": 0.246,
+          "rtf": 0.0801,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3624.9,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления на юридический факультет вам необходимо предоставить аттестат о …",
+          "audio_duration_s": 10.995,
+          "synthesis_time_s": 0.826,
+          "ttfa_s": 0.826,
+          "rtf": 0.0752,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3764.0,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в п…",
+          "audio_duration_s": 9.729,
+          "synthesis_time_s": 0.728,
+          "ttfa_s": 0.728,
+          "rtf": 0.0748,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3764.0,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Заявление о приёме документов можно подать лично в приёмную комиссию, а также че…",
+          "audio_duration_s": 10.495,
+          "synthesis_time_s": 0.773,
+          "ttfa_s": 0.773,
+          "rtf": 0.0736,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3764.2,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Для иностранных граждан предусмотрена отдельная квота мест, порядок поступления …",
+          "audio_duration_s": 10.96,
+          "synthesis_time_s": 0.793,
+          "ttfa_s": 0.793,
+          "rtf": 0.0724,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3764.3,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Льготы при поступлении предоставляются детям-сиротам, инвалидам первой и второй …",
+          "audio_duration_s": 12.399,
+          "synthesis_time_s": 0.901,
+          "ttfa_s": 0.901,
+          "rtf": 0.0727,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3851.4,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления в Российский государственный университет правосудия на очную фор…",
+          "audio_duration_s": 31.707,
+          "synthesis_time_s": 2.28,
+          "ttfa_s": 2.28,
+          "rtf": 0.0719,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4231.7,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Конкурс на бюджетные места проводится на основании суммы баллов единого государс…",
+          "audio_duration_s": 25.321,
+          "synthesis_time_s": 1.823,
+          "ttfa_s": 1.823,
+          "rtf": 0.072,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4269.4,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, …",
+          "audio_duration_s": 23.986,
+          "synthesis_time_s": 1.785,
+          "ttfa_s": 1.785,
+          "rtf": 0.0744,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4268.9,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Целевой приём на юридический факультет осуществляется на основании договора о це…",
+          "audio_duration_s": 26.715,
+          "synthesis_time_s": 2.034,
+          "ttfa_s": 2.034,
+          "rtf": 0.0761,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4286.3,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Оригинал документа об образовании необходимо предоставить лично не позднее чем з…",
+          "audio_duration_s": 22.779,
+          "synthesis_time_s": 1.647,
+          "ttfa_s": 1.647,
+          "rtf": 0.0723,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4301.8,
+          "sample_rate": 22050,
+          "audio_file": null
+        }
+      ],
+      "streaming_test": {
+        "sentences": 5,
+        "total_time_s": 2.205,
+        "avg_ttfa_s": 0.3988,
+        "total_audio_duration_s": 29.849,
+        "overall_rtf": 0.0739
+      },
+      "avg_rtf": 0.0785,
+      "avg_ttfa_s": 0.9991,
+      "error": null
+    },
+    {
+      "model": "piper-ru_RU-ruslan-medium",
+      "device": "cpu",
+      "load_time_s": 3.966,
+      "vram_after_load_mb": 0.0,
+      "ram_after_load_mb": 3552.6,
+      "sentences": [
+        {
+          "text": "Добрый день, чем могу помочь?",
+          "audio_duration_s": 1.776,
+          "synthesis_time_s": 0.252,
+          "ttfa_s": 0.252,
+          "rtf": 0.1418,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3601.4,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Документы принимаются до тридцать первого июля.",
+          "audio_duration_s": 3.077,
+          "synthesis_time_s": 0.26,
+          "ttfa_s": 0.26,
+          "rtf": 0.0845,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3623.8,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Вступительные испытания начинаются второго августа.",
+          "audio_duration_s": 3.344,
+          "synthesis_time_s": 0.266,
+          "ttfa_s": 0.266,
+          "rtf": 0.0795,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3627.4,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Зачисление проводится по конкурсу баллов ЕГЭ.",
+          "audio_duration_s": 3.355,
+          "synthesis_time_s": 0.254,
+          "ttfa_s": 0.254,
+          "rtf": 0.0757,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3627.6,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Позвоните нам в рабочее время, пожалуйста.",
+          "audio_duration_s": 2.485,
+          "synthesis_time_s": 0.19,
+          "ttfa_s": 0.19,
+          "rtf": 0.0766,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3627.6,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления на юридический факультет вам необходимо предоставить аттестат о …",
+          "audio_duration_s": 10.693,
+          "synthesis_time_s": 0.802,
+          "ttfa_s": 0.802,
+          "rtf": 0.075,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3759.8,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в п…",
+          "audio_duration_s": 8.127,
+          "synthesis_time_s": 0.664,
+          "ttfa_s": 0.664,
+          "rtf": 0.0817,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3759.8,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Заявление о приёме документов можно подать лично в приёмную комиссию, а также че…",
+          "audio_duration_s": 8.661,
+          "synthesis_time_s": 0.681,
+          "ttfa_s": 0.681,
+          "rtf": 0.0786,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3759.9,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Для иностранных граждан предусмотрена отдельная квота мест, порядок поступления …",
+          "audio_duration_s": 9.416,
+          "synthesis_time_s": 0.727,
+          "ttfa_s": 0.727,
+          "rtf": 0.0772,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3759.9,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Льготы при поступлении предоставляются детям-сиротам, инвалидам первой и второй …",
+          "audio_duration_s": 10.275,
+          "synthesis_time_s": 0.796,
+          "ttfa_s": 0.796,
+          "rtf": 0.0775,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 3759.9,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Для поступления в Российский государственный университет правосудия на очную фор…",
+          "audio_duration_s": 25.298,
+          "synthesis_time_s": 2.02,
+          "ttfa_s": 2.02,
+          "rtf": 0.0798,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4145.3,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Конкурс на бюджетные места проводится на основании суммы баллов единого государс…",
+          "audio_duration_s": 21.804,
+          "synthesis_time_s": 1.657,
+          "ttfa_s": 1.657,
+          "rtf": 0.076,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4162.2,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, …",
+          "audio_duration_s": 19.482,
+          "synthesis_time_s": 1.503,
+          "ttfa_s": 1.503,
+          "rtf": 0.0772,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4160.9,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Целевой приём на юридический факультет осуществляется на основании договора о це…",
+          "audio_duration_s": 22.802,
+          "synthesis_time_s": 1.662,
+          "ttfa_s": 1.662,
+          "rtf": 0.0729,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4171.5,
+          "sample_rate": 22050,
+          "audio_file": null
+        },
+        {
+          "text": "Оригинал документа об образовании необходимо предоставить лично не позднее чем з…",
+          "audio_duration_s": 19.783,
+          "synthesis_time_s": 1.497,
+          "ttfa_s": 1.497,
+          "rtf": 0.0756,
+          "vram_peak_mb": 0.0,
+          "ram_mb": 4171.3,
+          "sample_rate": 22050,
+          "audio_file": null
+        }
+      ],
+      "streaming_test": {
+        "sentences": 5,
+        "total_time_s": 2.008,
+        "avg_ttfa_s": 0.3612,
+        "total_audio_duration_s": 23.591,
+        "overall_rtf": 0.0851
+      },
+      "avg_rtf": 0.082,
+      "avg_ttfa_s": 0.8821,
+      "error": null
+    },
+    {
+      "model": "kokoro-af_heart",
+      "device": "cpu",
+      "load_time_s": null,
+      "vram_after_load_mb": null,
+      "ram_after_load_mb": null,
+      "sentences": [],
+      "streaming_test": null,
+      "avg_rtf": null,
+      "avg_ttfa_s": null,
+      "error": "kokoro package is required for KokoroTTSModel.\nInstall with: pip install kokoro>=0.9.0\nNote: this model is English-only and not suitable for Russian TTS evaluation."
+    }
+  ]
+}

@@ -20,18 +20,63 @@ from rag.config import DEFAULT, LLAMA_SERVER, RagConfig
 
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
-SYSTEM_PROMPT = (
-    "Ты — помощник приёмной комиссии юридического вуза (ДВЮИ МВД). "
-    "Отвечай ТОЛЬКО на основе приведённых фрагментов документов, по-русски, "
-    "разговорным языком. Не выдумывай факты. Отвечай КРАТКО — 2–4 предложения, "
-    "без списков и заголовков, только самое важное (ответ читается вслух голосом). "
-    "Если во фрагментах нет ответа — честно скажи, что точной информации нет и "
-    "стоит уточнить в приёмной комиссии. Ссылайся на источник в скобках."
+# Base persona: female assistant, ultra-concise (1–3 sentences), answers ONLY the
+# direct question — no pre-emptive info-dumping of the whole RAG context (that both
+# bloats the spoken answer and, when it can't fill 3–4 sentences, smears one thought).
+BASE_SYSTEM_PROMPT = (
+    "Ты — помощница приёмной комиссии юридического вуза (ДВЮИ МВД); "
+    "ты женщина и говоришь от первого лица в женском роде (я готова, я подскажу, я уточнила). "
+    "Отвечай ТОЛЬКО на основе приведённых фрагментов документов, по-русски, живым "
+    "разговорным языком. Не выдумывай факты. "
+    "Отвечай МАКСИМАЛЬНО КРАТКО — 1–3 коротких предложения. Ответь ПРЯМО на заданный "
+    "вопрос и ТОЛЬКО на него: не пересказывай все фрагменты, не добавляй смежную "
+    "информацию на упреждение, не перечисляй лишнее. Короткий точный ответ лучше "
+    "длинного размазанного; если сказать по сути нечего — не тяни мысль. "
+    "Без списков и заголовков (ответ читается вслух голосом). "
+    "Если во фрагментах нет ответа — коротко скажи, что точной информации нет и стоит "
+    "уточнить в приёмной комиссии. Ссылайся на источник в скобках."
+    "Обязательно нужно числа и цифры прописывать словами,"
+    "@например, десять вместо 10 и сорок два вместо 42."
 )
-# NB: the "2–4 sentences" instruction cuts natural answer length from ~156 to
-# ~70 tokens, so max_tokens=200 now truncates 0/32 eval answers (was 13/32
-# mid-sentence) *and* is faster (0.79s vs 1.30s). See experiments-rag-params/
-# bench_concise_2b.py.
+# NB: the concise instruction cuts natural answer length; with max_tokens=200 the
+# 2–4-sentence variant already ran 0/32 truncated — 1–3 sentences is tighter still.
+# See experiments-rag-params/bench_concise_2b.py.
+
+# Optional emotion/intonation control: when enabled, the LLM inlines lightweight
+# markers ([q], [emp], [pause]…) that the TTS turns into Silero SSML prosody. Kept as
+# a toggle (RagConfig.emotion_tags) because it costs a few tokens and needs the
+# marker-aware TTS path. Vocabulary mirrors experiment-tts/intonation_ssml.py.
+EMOTION_PROMPT_SNIPPET = (
+    "\n\nМожешь (не обязательно) добавлять интонационные маркеры прямо в текст, "
+    "ПЕРЕД словом/фразой, к которой они относятся, для более живой озвучки. "
+    "Маркеры не парные (закрывающих нет) и действуют на текст после себя до "
+    "следующего маркера или конца предложения. Доступны: "
+    "[q] — вопросительная интонация для фраз без «?»; [q_strong] — усиленный вопрос; "
+    "[exc] — восклицание; [calm] — спокойный/мягкий тон; [emp] — смысловой акцент; "
+    "[fast]/[slow] — темп; [pause:short]/[pause]/[pause:long] — пауза. "
+    "Не злоупотребляй — 0–2 маркера на предложение. Не выделяй середину слова."
+)
+
+# Marker tokens (same set as intonation_ssml.py) — used to strip markers from the
+# displayed answer while keeping them in the TTS text.
+_MARKER_RE = re.compile(r"\[(?:q_strong|q|exc|calm|fast|slow|emp|pause(?::\w+)?)\]")
+
+
+def build_system_prompt(emotion_tags: bool = False) -> str:
+    """Base persona prompt, plus emotion-marker instructions when enabled."""
+    return BASE_SYSTEM_PROMPT + (EMOTION_PROMPT_SNIPPET if emotion_tags else "")
+
+
+def strip_markers(text: str) -> str:
+    """Remove intonation markers and tidy the spacing they leave behind."""
+    cleaned = _MARKER_RE.sub("", text)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)          # collapse doubled spaces
+    cleaned = re.sub(r"\s+([,.!?…])", r"\1", cleaned)  # no space before punctuation
+    return cleaned.strip()
+
+
+# Backwards-compat: modules importing SYSTEM_PROMPT get the base (no-emotion) prompt.
+SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 
 
 def render_chatml(messages: list[dict]) -> str:
@@ -183,10 +228,10 @@ def build_context_block(chunks: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
-def build_messages(question: str, chunks: list[dict]) -> list[dict]:
+def build_messages(question: str, chunks: list[dict], cfg: RagConfig = DEFAULT) -> list[dict]:
     ctx = build_context_block(chunks)
     user = f"Фрагменты документов:\n{ctx}\n\nВопрос абитуриента: {question}\n\nДай краткий точный ответ на основе фрагментов."
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": build_system_prompt(cfg.emotion_tags)},
         {"role": "user", "content": user},
     ]

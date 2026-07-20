@@ -1,0 +1,133 @@
+{
+  "run_id": "20260718_152813",
+  "device": "cuda",
+  "silero_version": "v5_5_ru",
+  "silero_sr": 48000,
+  "ruaccent_available": true,
+  "deepfilternet_available": false,
+  "crossfade_ms": 20.0,
+  "cells": [
+    {
+      "cell": "silero-v55-baya-48k__ruaccent__soxr_deess_s2_18k",
+      "voice": "silero-v55-baya-48k",
+      "accent": "ruaccent",
+      "denoise": "soxr_deess_s2_18k",
+      "avg_ttfa_ms": 598.4,
+      "avg_rtf": 0.258,
+      "avg_synth_ms": 41.5,
+      "avg_accent_ms": 16.0,
+      "avg_denoise_ms": 540.9,
+      "max_clip_peak": 0.8913,
+      "stream_avg_ttfa_ms": 68.5,
+      "representative": [
+        {
+          "sample_rate": 48000,
+          "text_used": "Добрый день, чем могу помочь?",
+          "accent_ms": 48.1,
+          "synth_ms": 24.8,
+          "denoise_ms": 1510.9,
+          "ttfa_ms": 1583.8,
+          "audio_duration_s": 2.087,
+          "rtf": 0.7587,
+          "clip_peak": 0.8913,
+          "clipped_pct": 0.0,
+          "dc_offset": 0.00032
+        },
+        {
+          "sample_rate": 48000,
+          "text_used": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в прошлом году составил двести восемьдесят четыре балла по трём предметам.",
+          "accent_ms": 0.0,
+          "synth_ms": 40.6,
+          "denoise_ms": 36.3,
+          "ttfa_ms": 76.9,
+          "audio_duration_s": 9.25,
+          "rtf": 0.0083,
+          "clip_peak": 0.8913,
+          "clipped_pct": 0.0,
+          "dc_offset": 4e-05
+        },
+        {
+          "sample_rate": 48000,
+          "text_used": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, после чего абитуриент получает уведомление о включении в рейтинговый список либо об отказе в приёме с указанием причины, и в случае несогласия с решением абитуриент вправе подать апелляцию в течение суток.",
+          "accent_ms": 0.0,
+          "synth_ms": 59.0,
+          "denoise_ms": 75.6,
+          "ttfa_ms": 134.6,
+          "audio_duration_s": 18.887,
+          "rtf": 0.0071,
+          "clip_peak": 0.8913,
+          "clipped_pct": 0.0,
+          "dc_offset": 2e-05
+        }
+      ],
+      "streaming": {
+        "crossfade": {
+          "duration_s": 27.657,
+          "file": "grid_audio\\silero-v55-baya-48k__ruaccent__soxr_deess_s2_18k\\stream_crossfade.wav"
+        }
+      },
+      "audio_dir": "grid_audio\\silero-v55-baya-48k__ruaccent__soxr_deess_s2_18k"
+    },
+    {
+      "cell": "silero-v55-baya-48k__ruaccent__soxr_deess_s2_20k",
+      "voice": "silero-v55-baya-48k",
+      "accent": "ruaccent",
+      "denoise": "soxr_deess_s2_20k",
+      "avg_ttfa_ms": 82.8,
+      "avg_rtf": 0.0106,
+      "avg_synth_ms": 42.0,
+      "avg_accent_ms": 0.0,
+      "avg_denoise_ms": 40.8,
+      "max_clip_peak": 0.8913,
+      "stream_avg_ttfa_ms": 53.8,
+      "representative": [
+        {
+          "sample_rate": 48000,
+          "text_used": "Добрый день, чем могу помочь?",
+          "accent_ms": 0.0,
+          "synth_ms": 25.0,
+          "denoise_ms": 8.4,
+          "ttfa_ms": 33.5,
+          "audio_duration_s": 2.087,
+          "rtf": 0.016,
+          "clip_peak": 0.8913,
+          "clipped_pct": 0.0,
+          "dc_offset": 0.00032
+        },
+        {
+          "sample_rate": 48000,
+          "text_used": "Минимальный проходной балл на бюджетные места по специальности юриспруденция в прошлом году составил двести восемьдесят четыре балла по трём предметам.",
+          "accent_ms": 0.0,
+          "synth_ms": 41.5,
+          "denoise_ms": 36.9,
+          "ttfa_ms": 78.4,
+          "audio_duration_s": 9.25,
+          "rtf": 0.0085,
+          "clip_peak": 0.8913,
+          "clipped_pct": 0.0,
+          "dc_offset": 4e-05
+        },
+        {
+          "sample_rate": 48000,
+          "text_used": "Приёмная комиссия рассматривает поданные документы в течение трёх рабочих дней, после чего абитуриент получает уведомление о включении в рейтинговый список либо об отказе в приёме с указанием причины, и в случае несогласия с решением абитуриент вправе подать апелляцию в течение суток.",
+          "accent_ms": 0.0,
+          "synth_ms": 59.4,
+          "denoise_ms": 77.1,
+          "ttfa_ms": 136.5,
+          "audio_duration_s": 18.887,
+          "rtf": 0.0072,
+          "clip_peak": 0.8913,
+          "clipped_pct": 0.0,
+          "dc_offset": 2e-05
+        }
+      ],
+      "streaming": {
+        "crossfade": {
+          "duration_s": 27.657,
+          "file": "grid_audio\\silero-v55-baya-48k__ruaccent__soxr_deess_s2_20k\\stream_crossfade.wav"
+        }
+      },
+      "audio_dir": "grid_audio\\silero-v55-baya-48k__ruaccent__soxr_deess_s2_20k"
+    }
+  ]
+}

@@ -1,0 +1,244 @@
+{
+  "cells": [
+    {
+      "cell": "v4_ru__aidar__24k",
+      "version": "v4_ru",
+      "voice": "aidar",
+      "sample_rate": 24000,
+      "max_peak": 0.8973,
+      "avg_hf_roughness": 0.1301,
+      "avg_synth_s": 7.485,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__aidar__24k"
+    },
+    {
+      "cell": "v4_ru__aidar__48k",
+      "version": "v4_ru",
+      "voice": "aidar",
+      "sample_rate": 48000,
+      "max_peak": 0.9361,
+      "avg_hf_roughness": 0.081,
+      "avg_synth_s": 0.286,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__aidar__48k"
+    },
+    {
+      "cell": "v4_ru__baya__24k",
+      "version": "v4_ru",
+      "voice": "baya",
+      "sample_rate": 24000,
+      "max_peak": 0.8951,
+      "avg_hf_roughness": 0.2672,
+      "avg_synth_s": 0.397,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__baya__24k"
+    },
+    {
+      "cell": "v4_ru__baya__48k",
+      "version": "v4_ru",
+      "voice": "baya",
+      "sample_rate": 48000,
+      "max_peak": 0.9876,
+      "avg_hf_roughness": 0.1884,
+      "avg_synth_s": 0.033,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__baya__48k"
+    },
+    {
+      "cell": "v4_ru__kseniya__24k",
+      "version": "v4_ru",
+      "voice": "kseniya",
+      "sample_rate": 24000,
+      "max_peak": 0.8692,
+      "avg_hf_roughness": 0.235,
+      "avg_synth_s": 0.07,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__kseniya__24k"
+    },
+    {
+      "cell": "v4_ru__kseniya__48k",
+      "version": "v4_ru",
+      "voice": "kseniya",
+      "sample_rate": 48000,
+      "max_peak": 0.9221,
+      "avg_hf_roughness": 0.155,
+      "avg_synth_s": 0.046,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__kseniya__48k"
+    },
+    {
+      "cell": "v4_ru__xenia__24k",
+      "version": "v4_ru",
+      "voice": "xenia",
+      "sample_rate": 24000,
+      "max_peak": 0.8464,
+      "avg_hf_roughness": 0.249,
+      "avg_synth_s": 0.076,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__xenia__24k"
+    },
+    {
+      "cell": "v4_ru__xenia__48k",
+      "version": "v4_ru",
+      "voice": "xenia",
+      "sample_rate": 48000,
+      "max_peak": 0.8326,
+      "avg_hf_roughness": 0.1588,
+      "avg_synth_s": 0.036,
+      "audio_dir": "grid_audio\\silero_versions\\v4_ru__xenia__48k"
+    },
+    {
+      "cell": "v5_ru__aidar__24k",
+      "version": "v5_ru",
+      "voice": "aidar",
+      "sample_rate": 24000,
+      "max_peak": 0.5373,
+      "avg_hf_roughness": 0.2491,
+      "avg_synth_s": 1.381,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__aidar__24k"
+    },
+    {
+      "cell": "v5_ru__aidar__48k",
+      "version": "v5_ru",
+      "voice": "aidar",
+      "sample_rate": 48000,
+      "max_peak": 0.9698,
+      "avg_hf_roughness": 0.0779,
+      "avg_synth_s": 0.053,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__aidar__48k"
+    },
+    {
+      "cell": "v5_ru__baya__24k",
+      "version": "v5_ru",
+      "voice": "baya",
+      "sample_rate": 24000,
+      "max_peak": 0.5583,
+      "avg_hf_roughness": 0.6294,
+      "avg_synth_s": 0.205,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__baya__24k"
+    },
+    {
+      "cell": "v5_ru__baya__48k",
+      "version": "v5_ru",
+      "voice": "baya",
+      "sample_rate": 48000,
+      "max_peak": 0.799,
+      "avg_hf_roughness": 0.2276,
+      "avg_synth_s": 0.048,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__baya__48k"
+    },
+    {
+      "cell": "v5_ru__kseniya__24k",
+      "version": "v5_ru",
+      "voice": "kseniya",
+      "sample_rate": 24000,
+      "max_peak": 0.837,
+      "avg_hf_roughness": 0.53,
+      "avg_synth_s": 0.205,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__kseniya__24k"
+    },
+    {
+      "cell": "v5_ru__kseniya__48k",
+      "version": "v5_ru",
+      "voice": "kseniya",
+      "sample_rate": 48000,
+      "max_peak": 0.9063,
+      "avg_hf_roughness": 0.199,
+      "avg_synth_s": 0.071,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__kseniya__48k"
+    },
+    {
+      "cell": "v5_ru__xenia__24k",
+      "version": "v5_ru",
+      "voice": "xenia",
+      "sample_rate": 24000,
+      "max_peak": 0.7518,
+      "avg_hf_roughness": 0.5035,
+      "avg_synth_s": 0.202,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__xenia__24k"
+    },
+    {
+      "cell": "v5_ru__xenia__48k",
+      "version": "v5_ru",
+      "voice": "xenia",
+      "sample_rate": 48000,
+      "max_peak": 0.9269,
+      "avg_hf_roughness": 0.1799,
+      "avg_synth_s": 0.067,
+      "audio_dir": "grid_audio\\silero_versions\\v5_ru__xenia__48k"
+    },
+    {
+      "cell": "v5_5_ru__aidar__24k",
+      "version": "v5_5_ru",
+      "voice": "aidar",
+      "sample_rate": 24000,
+      "max_peak": 0.5875,
+      "avg_hf_roughness": 0.2686,
+      "avg_synth_s": 0.898,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__aidar__24k"
+    },
+    {
+      "cell": "v5_5_ru__aidar__48k",
+      "version": "v5_5_ru",
+      "voice": "aidar",
+      "sample_rate": 48000,
+      "max_peak": 0.992,
+      "avg_hf_roughness": 0.0833,
+      "avg_synth_s": 0.056,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__aidar__48k"
+    },
+    {
+      "cell": "v5_5_ru__baya__24k",
+      "version": "v5_5_ru",
+      "voice": "baya",
+      "sample_rate": 24000,
+      "max_peak": 0.551,
+      "avg_hf_roughness": 0.6331,
+      "avg_synth_s": 0.05,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__baya__24k"
+    },
+    {
+      "cell": "v5_5_ru__baya__48k",
+      "version": "v5_5_ru",
+      "voice": "baya",
+      "sample_rate": 48000,
+      "max_peak": 0.8142,
+      "avg_hf_roughness": 0.2303,
+      "avg_synth_s": 0.032,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__baya__48k"
+    },
+    {
+      "cell": "v5_5_ru__kseniya__24k",
+      "version": "v5_5_ru",
+      "voice": "kseniya",
+      "sample_rate": 24000,
+      "max_peak": 0.738,
+      "avg_hf_roughness": 0.5109,
+      "avg_synth_s": 0.039,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__kseniya__24k"
+    },
+    {
+      "cell": "v5_5_ru__kseniya__48k",
+      "version": "v5_5_ru",
+      "voice": "kseniya",
+      "sample_rate": 48000,
+      "max_peak": 0.9135,
+      "avg_hf_roughness": 0.1914,
+      "avg_synth_s": 0.032,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__kseniya__48k"
+    },
+    {
+      "cell": "v5_5_ru__xenia__24k",
+      "version": "v5_5_ru",
+      "voice": "xenia",
+      "sample_rate": 24000,
+      "max_peak": 0.661,
+      "avg_hf_roughness": 0.5457,
+      "avg_synth_s": 0.045,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__xenia__24k"
+    },
+    {
+      "cell": "v5_5_ru__xenia__48k",
+      "version": "v5_5_ru",
+      "voice": "xenia",
+      "sample_rate": 48000,
+      "max_peak": 0.771,
+      "avg_hf_roughness": 0.1889,
+      "avg_synth_s": 0.032,
+      "audio_dir": "grid_audio\\silero_versions\\v5_5_ru__xenia__48k"
+    }
+  ]
+}
