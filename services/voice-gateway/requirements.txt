@@ -19,6 +19,11 @@ numpy==1.26.4
 scipy==1.13.1
 soxr==0.5.0.post1
 ruaccent==1.5.8.3
+# Russian morphology (numeral case declension for text_normalize.py, e.g.
+# genitive "не менее двадцати баллов" -- pymorphy2 is unmaintained and breaks
+# on Python 3.11+, use the maintained fork).
+pymorphy3==2.0.6
+pymorphy3-dicts-ru==2.4.417150.4580142
 
 # --- Local faster-whisper STT backend (VOICE_STT_BACKEND=faster-whisper, default) ---
 # large-v3-turbo int8 on CUDA (VOICE_WHISPER_DEVICE=cuda). CTranslate2 needs the CUDA

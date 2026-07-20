@@ -27,6 +27,7 @@ from xml.sax.saxutils import escape
 import numpy as np
 
 from .config import settings
+from .text_normalize import normalize_for_tts
 
 # ---- production chain constants (single source of truth for the gateway) ----
 _SOXR_VIA_HZ = 20000
@@ -211,6 +212,7 @@ class SileroTTSClient:
         text = (text or "").strip()
         if not text:
             raise RuntimeError("Empty TTS text")
+        text = normalize_for_tts(text)
         self._ensure_loaded()
         if _MARKER_RE.search(text):
             ssml = f"<speak><p><s>{_markers_to_ssml_body(text)}</s></p></speak>"
