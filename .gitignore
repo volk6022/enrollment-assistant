@@ -43,5 +43,6 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Apalache/Quint verification scratch
+# Apalache/Quint verification scratch (пишется в cwd, откуда запущен скрипт)
 specs/formal/_apalache-out/
+_apalache-out/

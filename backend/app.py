@@ -1,51 +1,112 @@
 """FastAPI-приложение: `/ws/dialogue`, `GET /health`, `GET /metrics`, `POST /answer`.
 
 Полная оркестрация диалога (сокет → кольцо → VAD → STT → автомат → RAG/LLM → TTS →
-сокет) — задача T-09 (`backend/ws/session.py`). Здесь — только каркас: сборка
-зависимостей в lifespan, graceful shutdown, и эндпоинты в объёме, который T-01
-может честно реализовать без остальных волн:
+сокет) реализована в `backend/ws/session.py` (T-09); этот модуль отвечает за:
 
+- Сборку всех процесс-уровневых зависимостей ровно один раз в `lifespan`:
+  `LlamaClient`, `WhisperWorker`/`SileroWorker` (прогретые, включая генерацию
+  `GREETING_AUDIO_PATH` через `ensure_greeting_audio` — нужен и для FR-01, и для
+  прогрева whisper реальной речью, plan.md §2), `RagPipeline` + выделенный
+  однопоточный пул "rag" (plan.md §2/§9), `ScenarioRegistry` (падает на старте при
+  битом `dialogue/scenarios.yaml`) и `DialogueThresholds`, собранные из
+  `settings.dialogue.*_s * 1000` (plan.md §9 «Соответствие модели и кода»).
+- `/ws/dialogue`: handshake (`session.ready` первым кадром, contracts/websocket.md §1)
+  и делегирование всей остальной работы новому `DialogueSession` на каждое
+  соединение.
 - `/health` реально пингует три эндпоинта llama-server (LLM/эмбеддер/реранкер) и
-  отдаёт статус STT/TTS-воркеров, если они уже подключены (T-05 присваивает их в
-  `app.state.stt_worker` / `app.state.tts_worker`; до этого честно "не загружены").
-- `/ws/dialogue` делает только handshake из contracts/websocket.md §1 (`session.ready`
-  первым кадром) и закрывается с `session.ended(reason="not_implemented")` — сама
-  оркестрация ждёт T-09.
-- `/answer` возвращает 200 с полным набором ключей контракта §5, но честно помеченный
-  `tts_status: "not_implemented"` — RAG/LLM-пайплайн (T-03/T-04) ещё не подключён.
+  отдаёт статус STT/TTS-воркеров через `app.state.stt_worker`/`app.state.tts_worker`.
+- `/answer` — заглушка T-01 оставлена как есть: одноходовый REST-путь не входит в
+  объём T-09 (FR-01…FR-03, FR-09…FR-17 — все про `/ws/dialogue`), подключение
+  RAG/LLM к нему не выполнялось, чтобы не пересекаться с T-03/T-04.
 """
 from __future__ import annotations
 
 import asyncio
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from backend.config import settings
+from backend.dialogue.nodes import DialogueThresholds
+from backend.dialogue.scenarios import ScenarioRegistry
+from backend.llm.client import LlamaClient
+from backend.rag.config import RagSettings
+from backend.rag.pipeline import RagPipeline
+from backend.stt.whisper_worker import WhisperWorker
 from backend.telemetry import configure_logging, get_logger
+from backend.tts.silero_worker import SileroWorker
+from backend.ws.session import DialogueSession, SessionDependencies, ensure_greeting_audio, read_wav_pcm16
 
 logger = get_logger(__name__)
 
 
-class ModelWorker(Protocol):
-    """Интерфейс, которым T-05 подключает whisper/silero-воркеры к `/health`.
+def _build_thresholds() -> DialogueThresholds:
+    """`dialogue.qnt`'s ordinal TALK_LIMIT/IDLE_LIMIT/OVERLAP_LIMIT/TAIL_MIN,
+    in real milliseconds (tasks.md T-09, plan.md §9's correspondence table).
+    """
+    d = settings.dialogue
+    return DialogueThresholds(
+        turn_limit_ms=int(d.dialogue_interject_after_s * 1000),
+        idle_limit_ms=int(d.dialogue_idle_hangup_s * 1000),
+        overlap_limit_ms=int(d.dialogue_barge_in_overlap_s * 1000),
+        tail_min_ms=int(d.dialogue_barge_in_min_tail_s * 1000),
+    )
 
-    `WhisperWorker`/`SileroWorker` (backend/stt, backend/tts) обязаны предоставить
-    этот метод и присвоить себя в `app.state.stt_worker`/`app.state.tts_worker` при
-    старте. Пока воркер не подключён, `/health` честно отвечает "не загружен",
-    а не притворяется, что процесс жив, и есть модель.
+
+def _build_rag_settings() -> RagSettings:
+    """Adapter from `backend.config.Settings` to `RagSettingsProtocol`
+    (`backend/rag/config.py`'s own wiring note for whoever lands T-01/T-09).
+    """
+    rag_cfg, llm_cfg = settings.rag, settings.llm
+    return RagSettings(
+        embedding_endpoint=llm_cfg.embedding_endpoint,
+        reranker_endpoint=llm_cfg.reranker_endpoint,
+        rag_top_k=rag_cfg.rag_top_k,
+        rag_fused_top=rag_cfg.rag_fused_top,
+        rag_dense_top=rag_cfg.rag_dense_top,
+        rag_bm25_top=rag_cfg.rag_bm25_top,
+        rag_rrf_k=rag_cfg.rag_rrf_k,
+        rag_min_score=rag_cfg.rag_min_score,
+        rag_max_length=rag_cfg.rag_max_length,
+        rag_batch_size=rag_cfg.rag_batch_size,
+        faiss_index_path=str(rag_cfg.faiss_index_path),
+        kb_source_path=str(rag_cfg.kb_source_path),
+    )
+
+
+class ModelWorker(Protocol):
+    """Интерфейс, которым `/health` опрашивает whisper/silero-воркеры.
+
+    `WhisperWorker`/`SileroWorker` (T-05) сами предоставляют только
+    `is_warm`, без метода `health()` — `_WorkerHealthAdapter` ниже оборачивает
+    их для `/health`, не трогая их модуль (задача T-09 не переписывает чужой
+    код). Пока воркер не подключён, `/health` честно отвечает "не загружен".
     """
 
     def health(self) -> dict[str, object]: ...
+
+
+class _WorkerHealthAdapter:
+    """`ModelWorker` для `WhisperWorker`/`SileroWorker`, которые сами такого
+    метода не предоставляют — оборачиваем снаружи вместо правки T-05.
+    """
+
+    def __init__(self, name: str, worker: WhisperWorker | SileroWorker) -> None:
+        self._name = name
+        self._worker = worker
+
+    def health(self) -> dict[str, object]:
+        return {"loaded": True, "warm": self._worker.is_warm, "component": self._name}
 
 
 @asynccontextmanager
@@ -62,16 +123,87 @@ async def lifespan(app: FastAPI):
     app.state.started_at = time.monotonic()
     app.state.ws_connections_total = 0
     app.state.ws_connections_active = 0
-    # T-05 присваивает реальные воркеры сюда после прогрева (plan.md §2, «прогрев
-    # whisper из своего воркер-потока»). До этого момента оба — None.
     app.state.stt_worker = None
     app.state.tts_worker = None
+
+    # -- T-09: process-level singletons shared by every DialogueSession -----
+    # (plan.md §2/§9 -- three dedicated single-worker pools, one LlamaClient,
+    # one RagPipeline; NFR-06 -- everything except llama-server itself lives
+    # in this one process).
+    tts_worker = SileroWorker(
+        speaker=settings.audio.tts_speaker,
+        native_sample_rate=settings.audio.tts_sample_rate,
+        model_variant=settings.audio.tts_model,
+        output_sample_rate=settings.audio.tts_sample_rate,
+        device=settings.audio.tts_device,
+    )
+    await tts_worker.start()
+    app.state.tts_worker = _WorkerHealthAdapter("tts", tts_worker)
+
+    # FR-01's pre-recorded greeting doubles as whisper's warmup audio (plan.md
+    # §2: "тишина прогревом не является") -- must exist BEFORE WhisperWorker
+    # is constructed with it.
+    greeting_path: Path = settings.dialogue.greeting_audio_path
+    await ensure_greeting_audio(greeting_path, tts_worker, sample_rate=settings.audio.audio_sample_rate)
+    greeting_pcm16, greeting_rate = read_wav_pcm16(greeting_path)
+    if greeting_rate != settings.audio.audio_sample_rate:
+        raise RuntimeError(
+            f"{greeting_path}: sample rate {greeting_rate} != AUDIO_SAMPLE_RATE "
+            f"{settings.audio.audio_sample_rate} -- regenerate the greeting file"
+        )
+    greeting_duration_ms = int(len(greeting_pcm16) / 2 / settings.audio.audio_sample_rate * 1000)
+
+    whisper_worker = WhisperWorker(
+        model_size=settings.audio.stt_model,
+        device=settings.audio.stt_device,
+        compute_type=settings.audio.stt_compute_type,
+        language=settings.audio.stt_language,
+        partial_max_hz=settings.audio.stt_partial_max_hz,
+        window_seconds=settings.audio.stt_window_seconds,
+        overlap_seconds=settings.audio.stt_overlap_seconds,
+        final_pass=settings.audio.stt_final_pass,
+        warmup_audio_pcm16=greeting_pcm16,
+    )
+    await whisper_worker.start()
+    app.state.stt_worker = _WorkerHealthAdapter("stt", whisper_worker)
+
+    llama_client = LlamaClient(endpoint=settings.llm.llm_endpoint, timeout_s=settings.llm.llm_timeout_s)
+
+    rag_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rag")
+    rag_pipeline = RagPipeline(artifacts_dir=settings.rag.faiss_index_path, settings=_build_rag_settings())
+
+    # Falls loudly on a typo in scenarios.yaml (dialogue/scenarios.py's own
+    # contract) -- process must not start with a scenario that can never
+    # match anything.
+    scenario_registry = ScenarioRegistry.load(settings.dialogue.scenarios_path)
+
+    app.state.session_deps = SessionDependencies(
+        settings=settings,
+        llama_client=llama_client,
+        whisper_worker=whisper_worker,
+        tts_worker=tts_worker,
+        rag_pipeline=rag_pipeline,
+        rag_executor=rag_executor,
+        scenario_registry=scenario_registry,
+        thresholds=_build_thresholds(),
+        greeting_pcm16=greeting_pcm16,
+        greeting_duration_ms=greeting_duration_ms,
+    )
+    await logger.ainfo(
+        "backend_ready",
+        scenarios=len(scenario_registry.scenarios),
+        greeting_duration_ms=greeting_duration_ms,
+    )
 
     try:
         yield
     finally:
         await logger.ainfo("backend_stopping")
         await app.state.http_client.aclose()
+        await llama_client.aclose()
+        whisper_worker.close()
+        tts_worker.close()
+        rag_executor.shutdown(wait=True)
 
 
 app = FastAPI(title="Потоковый диалоговый ассистент приёмной комиссии", lifespan=lifespan)
@@ -199,42 +331,19 @@ async def answer(body: AnswerRequest) -> JSONResponse:
 
 @app.websocket("/ws/dialogue")
 async def ws_dialogue(websocket: WebSocket) -> None:
-    """Заглушка — полная реализация в `backend/ws/session.py` (T-09).
-
-    То, что можно честно сделать уже сейчас — сам протокольный handshake из
-    contracts/websocket.md §1: `session.ready` первым кадром, ничего от клиента
-    до этого момента не читаем. После этого оркестрации ещё нет, поэтому сессия
-    сразу и явно закрывается с `session.ended(reason="not_implemented")`, а не
-    висит и не притворяется рабочим диалогом.
+    """Full T-09 orchestration, delegated to `DialogueSession`
+    (`backend/ws/session.py`). This endpoint's own job stops at bookkeeping
+    connection counters and constructing a fresh session around the shared
+    `SessionDependencies` singletons built in `lifespan` -- `session.ready`,
+    the audio/JSON message loop, and every FR-01..FR-17 behaviour live
+    entirely inside `DialogueSession.run()`.
     """
-    await websocket.accept()
     app.state.ws_connections_total += 1
     app.state.ws_connections_active += 1
-
     session_id = uuid.uuid4().hex
-    t0_utc = datetime.now(UTC)
-
     try:
-        await websocket.send_json(
-            {
-                "type": "session.ready",
-                "session_id": session_id,
-                "t0_utc": t0_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }
-        )
-        await logger.ainfo("ws_session_ready", session_id=session_id)
-
-        await websocket.send_json(
-            {
-                "type": "status",
-                "text": "Диалоговая оркестрация ещё не подключена (T-09).",
-                "level": "info",
-            }
-        )
-        await websocket.send_json({"type": "session.ended", "reason": "not_implemented"})
-        await websocket.close()
-    except WebSocketDisconnect:
-        await logger.ainfo("ws_session_disconnected", session_id=session_id)
+        session = DialogueSession(websocket=websocket, session_id=session_id, deps=app.state.session_deps)
+        await session.run()
     finally:
         app.state.ws_connections_active -= 1
 

@@ -1,0 +1,142 @@
+# docker-compose.yml — T-11 (plan.md §11). Ровно два сервиса: `backend` и `gui`.
+#
+# llama-server НЕ описан здесь и не запускается этим файлом — решение заказчика
+# (plan.md §1: «в проде инференс-сервер чужой»). Три llama-server поднимаются на
+# ХОСТЕ скриптом `scripts/serve-models.ps1` (Windows) или `.sh` (Linux/macOS) —
+# см. README.md «Порядок запуска». `docker-compose up -d` сам по себе НЕ даёт
+# рабочую систему: без serve-models backend поднимется, но `/health` честно
+# отдаст 503 (эндпоинты llama недостижимы) — это ожидаемое поведение, не баг.
+#
+# Переменные интерполяции ниже (${VAR}) docker compose берёт из `.env` в этой же
+# директории автоматически (не нужен `--env-file`) — тот же файл, что и
+# `env_file:` передаёт ВНУТРЬ контейнера как процессные переменные окружения.
+# Это специально: `backend/config.py` — единственное место в python-коде, которое
+# читает `.env` (FR-32), а pydantic-settings по умолчанию предпочитает реальные
+# переменные окружения значениям из файла на диске — так что `.env` внутрь образа
+# копировать не нужно (см. .dockerignore) и не нужно монтировать: `env_file:`
+# достаточно.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: enrollment-backend:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Кэш-директории сторонних библиотек (huggingface_hub, torch.hub) — это НЕ
+      # бизнес-конфигурация backend (FR-32 запрещает читать os.environ в
+      # python-коде проекта; сюда это не относится, ни faster_whisper, ни
+      # torch.hub не являются нашим кодом). Смысл: whisper/silero — единственные
+      # модели, которым разрешено самим качаться (FR-31) — качаются один раз, в
+      # volume `./models`, а не при каждом перезапуске контейнера.
+      #   HF_HOME=/models        -> huggingface_hub кэширует в /models/hub —
+      #     тот самый каталог, где на машине разработки УЖЕ лежит скачанный
+      #     faster-whisper-large-v3-turbo (models/hub/models--mobiuslabsgmbh--...);
+      #     переиспользуется без повторного скачивания.
+      #   TORCH_HOME=/models/torch -> torch.hub (silero) кэширует в
+      #     /models/torch/hub, отдельно от HF-кэша, тот же volume.
+      HF_HOME: /models
+      TORCH_HOME: /models/torch
+      # GPU для whisper (STT_DEVICE=cuda, NFR-03) — CTranslate2 подхватывает
+      # видимые устройства через эти переменные плюс `deploy.devices` ниже.
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    ports:
+      # API_PORT читается backend'ом из .env (FR-32); наружу публикуем тот же
+      # номер, чтобы GUI (браузер, CORS_ORIGINS) и приёмочные скрипты били по
+      # известному адресу без второго источника правды о порте.
+      - "${API_PORT:-8000}:${API_PORT:-8000}"
+    volumes:
+      # GGUF-веса LLM/эмбеддера/реранкера — НЕ скачиваются (FR-31), кладёт Иван
+      # (README «Где взять веса»). Backend сам их не загружает (инференс — на
+      # хосте, отдельным llama-server), но MODELS_DIR читается config.py для
+      # будущей проверки на старте «файл существует» — и это же дерево, как
+      # описано выше, служит HF/torch-кэшем для whisper/silero. rw (не :ro):
+      # whisper/silero должны иметь возможность туда писать при первом скачивании.
+      - ${MODELS_HOST_DIR:-./models}:/models
+      # RAG-индекс (FAISS + BM25 + чанки), собранный T-04 из legacy rag/artifacts.
+      # ВНИМАНИЕ (см. финальный отчёт агента, флаг для Ивана): каталог
+      # backend/rag/artifacts/ в .gitignore — на чистом клоне он пуст, и RAG
+      # не ответит, пока индекс не собран/не скопирован сюда вручную. Путь
+      # внутри контейнера — ровно FAISS_INDEX_PATH из .env.example
+      # (/data/faiss_index), под который `backend.rag.index.Indexes` и рассчитан.
+      - ${RAG_ARTIFACTS_HOST_DIR:-./backend/rag/artifacts}:/data/faiss_index
+      # KB_SOURCE_PATH — сейчас не читается никаким рантайм-кодом (grep по
+      # backend/ на дату написания этого файла ничего не находит), смонтирован
+      # заранее для симметрии с .env.example и на будущее (сборка чанков внутри
+      # контейнера). :ro — исходники НПА, менять их изнутри контейнера незачем.
+      - ${KB_SOURCE_HOST_DIR:-./data/npa/knowledge-base}:/data/knowledge_base:ro
+      # Сценарии — редактируются без правки кода (FR-24). Смонтировано поверх
+      # того, что уже скопировано в образ (backend/Dockerfile), чтобы правка
+      # dialogue/scenarios.yaml на хосте подхватывалась перезапуском контейнера,
+      # без пересборки образа.
+      - ./dialogue:/app/dialogue:ro
+      # Приветствие (FR-01/FR-03) — GREETING_AUDIO_PATH. Файла в репозитории нет
+      # (не аудио-ассет, не GGUF-веса — отдельный пробел, см. финальный отчёт).
+      # Каталог создаётся заранее (см. ниже), чтобы `up -d` не падал на
+      # отсутствующем bind-source; кладёт сюда Иван greeting.wav вручную.
+      - ./assets:/app/assets:ro
+      # Логи — именованный volume, переживает пересоздание контейнера.
+      - backend_logs:/app/logs
+    extra_hosts:
+      # Backend ходит на хостовые llama-server через host.docker.internal
+      # (см. .env: LLM_ENDPOINT и др.). На Docker Desktop (Windows/macOS) алиас
+      # работает из коробки; на Linux он не существует без этой строки —
+      # `host-gateway` разрешает Docker Engine подставить настоящий IP хоста
+      # (plan.md §1, §11). Не мешает и на Docker Desktop, поэтому строка общая
+      # для всех платформ, а не только-Linux.
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      # Использует тот же /health, что и приёмочный флоу — не «процесс жив», а
+      # реальная достижимость llama-эндпоинтов + статус STT/TTS воркеров
+      # (backend/app.py). Контейнер будет "unhealthy", пока не запущен
+      # scripts/serve-models — это ожидаемо и видно в `docker compose ps`,
+      # не повод для паники при первом `up -d`.
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT:-8000}/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+
+  gui:
+    build:
+      # gui/Dockerfile — T-10. nginx same-origin реверс-прокси: браузер ходит
+      # только на GUI-порт, а /ws/, /health, /metrics, /answer nginx сам
+      # проксирует на backend (gui/nginx/default.conf.template) — поэтому в
+      # JS-бандле нет захардкоженного адреса backend, а CORS_ORIGINS в .env
+      # нужен backend'у только для прямых обращений мимо GUI (curl, отладка).
+      context: ./gui
+      dockerfile: Dockerfile
+    image: enrollment-gui:local
+    restart: unless-stopped
+    environment:
+      # Явно ожидается комментарием в gui/Dockerfile: "docker-compose.yml (T-11)
+      # is expected to override BACKEND_HOST/BACKEND_PORT ... and GUI_PORT to
+      # whatever is set in .env". BACKEND_HOST — имя сервиса в этом compose
+      # (Docker DNS в дефолтной bridge-сети резолвит `backend` на IP контейнера).
+      GUI_PORT: ${GUI_PORT:-3000}
+      BACKEND_HOST: backend
+      BACKEND_PORT: ${API_PORT:-8000}
+    depends_on:
+      # service_started, не service_healthy: статические ассеты GUI не зависят
+      # от готовности backend, чтобы открыть страницу — зависимость только у
+      # самого проксируемого WebSocket-соединения, а не у контейнера.
+      - backend
+    ports:
+      # Порт внутри контейнера = GUI_PORT (envsubst-шаблон nginx слушает именно
+      # ${GUI_PORT}, см. environment выше) — держим внешний и внутренний номер
+      # одинаковыми, чтобы не было второго отображения порта в голове.
+      - "${GUI_PORT:-3000}:${GUI_PORT:-3000}"
+
+volumes:
+  backend_logs:

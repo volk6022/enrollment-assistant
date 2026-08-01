@@ -1,0 +1,49 @@
+/* Carried over from services/voice-gateway/app/static/styles.css almost
+   verbatim (FR-28: light/dark via prefers-color-scheme, no in-UI toggle).
+   Additions are the state-badge and citations blocks, new in the rewrite. */
+:root { color-scheme: light dark; }
+body { font-family: system-ui, sans-serif; margin: 0; background: #f5f7fb; color: #111; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+h1 { margin: 0 0 8px; }
+.lead { margin: 0 0 20px; color: #4b5563; }
+.card { background: white; border-radius: 14px; padding: 18px; margin: 0 0 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+.row { display: flex; flex-wrap: wrap; align-items: center; }
+.gap { gap: 10px; }
+.top { margin-top: 12px; }
+button, .upload span { border: 0; border-radius: 10px; padding: 10px 14px; background: #2563eb; color: white; cursor: pointer; font-size: 14px; }
+button[disabled] { opacity: 0.5; cursor: not-allowed; }
+.upload input { display: none; }
+.status { margin-top: 12px; color: #374151; }
+textarea { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid #d1d5db; padding: 10px; font: inherit; }
+.answer { white-space: pre-wrap; line-height: 1.5; }
+audio { width: 100%; margin-top: 12px; }
+pre { white-space: pre-wrap; word-break: break-word; }
+
+.partial-note { color: #b45309; font-size: 0.85em; }
+
+.state-badge {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: #374151; margin: 0 0 14px; padding: 6px 10px;
+  background: white; border-radius: 999px; width: fit-content;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; }
+.dot-on { background: #16a34a; }
+.dot-off { background: #dc2626; }
+
+.citations { margin-top: 14px; }
+.citations h3 { margin: 0 0 6px; font-size: 14px; color: #4b5563; }
+.citations ul { margin: 0; padding-left: 18px; font-size: 13px; }
+.citation-source { color: #111; }
+.citation-point, .citation-score { color: #6b7280; }
+
+@media (prefers-color-scheme: dark) {
+  body { background: #0f172a; color: #e5e7eb; }
+  .card { background: #111827; box-shadow: none; }
+  .lead, .status { color: #cbd5e1; }
+  textarea { background: #0b1220; color: #e5e7eb; border-color: #334155; }
+  .state-badge { background: #111827; color: #cbd5e1; }
+  .citations h3 { color: #9ca3af; }
+  .citation-source { color: #e5e7eb; }
+  .citation-point, .citation-score { color: #94a3b8; }
+}

@@ -1,54 +1,238 @@
-# Enrollment Assistant — RAG (stage 1)
+# Enrollment Assistant — голосовой ассистент приёмной комиссии
 
-Голосовой ассистент приёмной комиссии ДВЮИ МВД. Пайплайн retrieval:
-`embed (bge-m3) → BM25+dense → RRF → rerank (bge-reranker-v2-m3) → Qwen3.5 (llama.cpp)`.
-Подробности: `BACKEND.md`, `rag/RAG_MAPPING.md`, `experiments-rag-params/RESULTS.md`.
+Полная спецификация — [`SPECIFICATION.md`](SPECIFICATION.md) (оглавление),
+[`specs/001-streaming-dialogue/spec.md`](specs/001-streaming-dialogue/spec.md) (требования),
+[`specs/001-streaming-dialogue/plan.md`](specs/001-streaming-dialogue/plan.md) (архитектура).
 
-## Индексы: переключение между корпусами
+Этот файл — **запуск**: что делать после `git clone`, откуда взять веса, сколько нужно
+VRAM. Ничего архитектурного здесь не дублируется.
 
-Пайплайн ищет по одному индексу в `rag/artifacts/` (`chunks.jsonl` + `dense.faiss` +
-`bm25.pkl`). Собрать его можно из **двух источников**, и между ними можно переключаться:
+---
+
+## Порядок запуска (FR-30)
+
+```bash
+git clone <репозиторий>
+cd enrollment-assistant
+cp .env.example .env
+# открыть .env и свериться со своей машиной: пути, порты, TTS_SPEAKER и т.д.
+# .env.example уже содержит рабочие значения по умолчанию для dev-бокса
+# (8 ГБ VRAM, всё GGUF Q8_0) — большинству полей менять нечего, кроме тех,
+# что перечислены в «Куда положить веса» ниже.
+```
+
+**Дальше — ДВА независимых шага, оба обязательны. Порядок между ними не важен,
+но без обоих система не работает:**
+
+### Шаг A — llama-server (на хосте, не в docker)
+
+Решение заказчика: инференс-сервер в проде — чужой, `docker-compose up -d` его не
+поднимает и не должен. Скрипт читает эндпоинты и имена файлов моделей из уже
+заполненного `.env`, ищет веса на хосте и поднимает три процесса:
+
+```powershell
+# Windows
+.\scripts\serve-models.ps1
+```
+
+```bash
+# Linux / macOS
+./scripts/serve-models.sh
+```
+
+Если весов нет — скрипт **не запустит ни одного** сервера и построчно перечислит,
+какой файл и по каким путям искал (не стек-трейс). См. «Куда положить веса» ниже.
+
+Проверить руками: `curl http://127.0.0.1:20099/health` (LLM), `:20100` (эмбеддер),
+`:20101` (реранкер) — везде `{"status":"ok"}`.
+
+Остановить: `.\scripts\serve-models.ps1 -Stop` / `./scripts/serve-models.sh --stop`.
+
+### Шаг B — backend и GUI (docker)
+
+```bash
+docker-compose up -d
+```
+
+**`up -d` сам по себе не даёт рабочую систему без шага A.** Без него backend
+поднимется (контейнер стартует, процесс жив), но:
+
+- `GET http://localhost:8000/health` честно ответит **503** — три llama-эндпоинта
+  недостижимы, это видно в теле ответа (`llm.reachable: false` и т.д.), не в виде
+  трейса;
+- `docker compose ps` покажет backend как `unhealthy` (healthcheck бьёт в тот же
+  `/health`) — это ожидаемо, не повод перезапускать контейнер.
+
+Открыть GUI: **http://localhost:3000** (порт из `GUI_PORT`, `.env.example`).
+
+---
+
+## Куда положить веса (FR-31)
+
+Сервис **не скачивает** LLM и энкодеры — только whisper и silero (torch.hub /
+huggingface_hub, при первом запуске, в `./models` — см. `docker-compose.yml`).
+Три GGUF-файла кладёт Иван вручную, **до** шага A:
+
+| Файл (`.env.example`, поле) | Куда положить (хост, относительно корня репо) | Источник |
+| --- | --- | --- |
+| `LLM_MODEL_FILE` — `Qwopus3.5-4B-Q4_K_M.gguf` | `models/llm/Qwopus3.5-4B-Q4_K_M.gguf` | **[ССЫЛКА — заполнить]** |
+| `EMBEDDING_MODEL_FILE` — `bge-m3-Q8_0.gguf` | `models/gguf/bge-m3-Q8_0.gguf` | **[ССЫЛКА — заполнить]** |
+| `RERANKER_MODEL_FILE` — `bge-reranker-v2-m3-Q8_0.gguf` | `models/gguf/bge-reranker-v2-m3-Q8_0.gguf` | **[ССЫЛКА — заполнить]** |
+
+`scripts/serve-models.*` ищет файл по имени из `.env` (`*_MODEL_FILE`) сначала в
+`models/llm/`, потом в `models/gguf/`, потом прямо в `models/` — любое из трёх
+устроит, таблица выше просто называет соглашение по умолчанию для этого репозитория
+(там же сейчас реально лежат файлы на машине разработки).
+
+> **Расхождение с фактом, замеченное при подготовке T-11, не исправлено само —
+> флагирую, не правлю:** `.env.example` называет файлы с заглавным `Q8_0`
+> (`bge-m3-Q8_0.gguf`, `bge-reranker-v2-m3-Q8_0.gguf`), а реально скачанные файлы на
+> этой машине — со строчным (`bge-m3-q8_0.gguf`, `bge-reranker-v2-m3-q8_0.gguf`). На
+> Windows это не заметно (NTFS нечувствительна к регистру), но на Linux-хосте
+> `scripts/serve-models.sh` с `.env.example` как есть **не найдёт** эти файлы даже при
+> точном совпадении остального пути. Исправить — либо переименовать файлы под `.env`,
+> либо поправить `.env.example` (вне моего файлового периметра в этой задаче).
+
+whisper (`large-v3-turbo`) и silero (`v5_5_ru`) качаются сами при первом старте
+backend-контейнера, в `./models` (переиспользуют то, что уже скачано на машине
+разработки — см. комментарии в `docker-compose.yml`).
+
+### Приветствие (`assets/greeting.wav`)
+
+В отличие от того, что написано в `assets/README.md` (актуализировать не
+успел — обнаружено позже, при сквозном прогоне A-13, флагирую здесь): класть
+`greeting.wav` вручную **не нужно**. `backend/ws/session.py::ensure_greeting_audio`
+(T-09) сам синтезирует файл через Silero при первом старте, если по
+`GREETING_AUDIO_PATH` ничего нет — идемпотентно, проверено вживую (лог
+`greeting_audio_generated`). Файл заодно служит `warmup_audio_pcm16` для
+прогрева whisper (`plan.md` §2 «Тишина прогревом не является» — тут это уже
+не проблема, потому что прогревочный файл содержит настоящую синтезированную
+речь, не тишину). Класть свой файл вручную по-прежнему можно (например, для
+живой, а не синтезированной, дикции) — просто это больше не обязательный шаг.
+
+### RAG-индекс
+
+`backend/rag/artifacts/` (FAISS + BM25 + чанки, собран T-04) — в `.gitignore`, на
+чистом клоне **пуст**. `docker-compose.yml` монтирует его в `/data/faiss_index`
+(путь из `FAISS_INDEX_PATH`, `.env.example`). Без него A-11 («вопрос вне базы
+знаний») и вообще любой RAG-запрос не будут иметь корректного индекса под собой —
+скопировать `backend/rag/artifacts/` с машины, где он уже собран, либо пересобрать
+(см. `BACKEND.md` / раздел «Legacy: пересборка RAG-индекса» ниже — процедура
+описана для `rag/` пакета, у `backend/rag/` выделенного CLI на момент T-11 нет).
+
+---
+
+## VRAM (dev-бокс, `plan.md` §10)
+
+Конфигурация по умолчанию в `.env.example` — «всё GGUF Q8_0», рассчитана на **8 ГБ**:
+
+| компонент | VRAM |
+| --- | --- |
+| llama-server 4B Q4_K_M (`-c 16k -np 2`) | 4307 МБ |
+| whisper large-v3-turbo int8 | 1240 МБ |
+| bge-m3 GGUF Q8_0 | ~474 МБ |
+| bge-reranker-v2-m3 GGUF Q8_0 | ~510 МБ |
+| **итого** | **6531 МБ**, запас ~1.6 ГБ на 8 ГБ карте |
+
+**Про `-c 32000` — перемерено при подготовке T-11, не только процитировано:**
+`.env.example` и `scripts/serve-models.*` запускают LLM с `LLM_CONTEXT_SIZE=32000`
+(решение заказчика, под пару «стрим + одно разовое решение», `plan.md` §4.4), а
+цифра 4307 МБ выше измерена в `plan.md` на `-c 16k`. При `-np 2` контекст делится
+поровну на слот (`n_ctx_seq`), и лог сервера при старте с `-c 32000` сам об этом
+предупреждает: `n_ctx is not divisible by n_seq_max - rounding down to 32256` →
+`n_ctx_seq (16128)` — тот же порядок, что и в замере плана.
+
+Две реальные точки измерения на этой машине (RTX 3060 Ti, 8 ГБ), `nvidia-smi`:
+
+| конфигурация | занято | запас |
+| --- | --- | --- |
+| только три llama-server (без backend) | 5709 МБ | ~2.4 ГБ |
+| + backend-контейнер с прогретым whisper (полный `docker-compose up -d`, `/health` = `ok`) | **6971 МБ** | **~1.2 ГБ** |
+
+Второе число — из реального сквозного прогона A-13 (см. финальный отчёт задачи):
+`docker-compose up -d` с уже поднятыми llama-server, GPU проброшен, backend
+дождался `stt.warm=true` и `tts.warm=true`, контейнер не перезапускался
+(`RestartCount=0`). Ближе к консервативной оценке плана (6531 МБ), чем
+изолированный замер трёх серверов — учитывать это число, не 5709 МБ, при
+планировании на карты меньше 8 ГБ. Не проверено под пиковой одновременной
+нагрузкой (STT+LLM-стрим+TTS+decide одновременно) — только статическое
+потребление после прогрева.
+
+Полный torch-стек (без GGUF-квантования энкодеров) — 7810 МБ, в 8 ГБ не влезает без
+проблем с фрагментацией; отсюда решение заказчика «на моём пк всё в q8 в gguf».
+
+---
+
+## Известные ограничения
+
+Честно, без приукрашивания. `gui/` (T-10) и `backend/ws/session.py` (T-09)
+приземлились уже во время работы над T-11 — `docker-compose up -d` реально
+собирает оба образа и поднимает полный стек (проверено, см. финальный отчёт
+задачи: `/health` → `{"status":"ok", ..., "stt":{"warm":true},
+"tts":{"warm":true}}`, `RestartCount=0`). Оставшееся:
+
+- **RAG-индекс отсутствует → падение со стек-трейсом, не с internal-сообщением
+  (нарушение духа A-13).** Если `/data/faiss_index` (том из `backend/rag/artifacts/`)
+  не содержит `chunks.jsonl`, `backend.rag.index.Indexes.__init__` бросает
+  необработанный `FileNotFoundError` прямо из FastAPI `lifespan` —
+  `ERROR: Traceback (most recent call last): ...`, `Application startup failed.
+  Exiting.`, и `restart: unless-stopped` уходит в бесконечный цикл
+  перезапуска (наблюдал вживую при подготовке T-11, до восстановления
+  `backend/rag/artifacts/`). Это отдельная история от «весов нет» (та ветка,
+  через `backend/config.py`, работает чисто — см. ниже), и файлы, где это
+  нужно чинить (`backend/app.py` lifespan или `backend/rag/pipeline.py`), вне
+  периметра T-11 (`backend/` кроме `Dockerfile`). Флагирую, не правлю.
+- Полный диалоговый цикл (A-01…A-11, живой голос) не прогонялся в рамках
+  T-11 — это T-09/T-12. Проверено только то, что относится к докеризации:
+  контейнеры стартуют, `/health` зелёный, GUI отдаётся и проксирует на
+  backend (`gui/nginx/default.conf.template`), GPU виден внутри контейнера,
+  whisper/silero прогреваются.
+
+---
+
+## Legacy: пересборка RAG-индекса (пакет `rag/`, Stage-1)
+
+Это про **исходный** пайплайн (`rag/`), который `backend/rag/` использует как
+источник `chunks.jsonl` при явном пересоздании индекса — сам новый backend его не
+запускает и не импортирует. Актуально, если нужно поменять корпус или пересчитать
+эмбеддинги для `backend/rag/artifacts/` с нуля.
+
+Индекс — три файла в `rag/artifacts/` (`chunks.jsonl` + `dense.faiss` + `bm25.pkl`).
+Собрать можно из **двух источников**:
 
 | Индекс | Источник | Чем хорош |
 | --- | --- | --- |
 | **raw-корпус** | 31 исходный НПА (`experiment-docx-processing/out/txt/`) | полный текст, дословные цитаты |
-| **compiled KB** | компилированная база `data/npa/knowledge-base/wiki/` | чище/меньше (43 чанка), выше src_recall на разговорном вводе и MRR |
-
-Любая сборка индекса — это **два шага**: сначала `chunks.jsonl` (чанкинг), затем
-переэмбеддинг в FAISS+BM25 (`rag.index`). **Второй шаг обязателен** после смены чанков.
-
-### Переключиться на compiled KB (wiki)
+| **compiled KB** | `data/npa/knowledge-base/wiki/` | чище/меньше (43 чанка), выше src_recall на разговорном вводе и MRR |
 
 ```powershell
-uv run python experiments-rag-params/build_wiki_index.py   # wiki/ -> chunks.jsonl (+ chunks.jsonl.bak)
-uv run python -m rag.index                                 # переэмбеддинг FAISS + BM25
+# compiled KB (wiki)
+uv run python experiments-rag-params/build_wiki_index.py
+uv run python -m rag.index
+
+# raw-корпус
+uv run python -m rag.ingest
+uv run python -m rag.index
 ```
 
-### Переключиться обратно на raw-корпус
+**Внимание: копировать в `backend/rag/artifacts/` можно только `chunks.jsonl`.**
+`dense.faiss`/`dense.npy` из `rag/artifacts/` — эмбеддинги torch fp16, а
+`backend/rag/` (T-04) считает их через GGUF Q8_0 на llama-server (`plan.md` §6) —
+это разные векторные пространства, один в один не подходят. Правильный порядок:
 
 ```powershell
-uv run python -m rag.ingest    # txt-корпус -> chunks.jsonl (структурный чанкинг + merge ~900)
-uv run python -m rag.index     # переэмбеддинг FAISS + BM25
+Copy-Item rag\artifacts\chunks.jsonl backend\rag\artifacts\chunks.jsonl
+# эмбеддинг-сервер (:20100) должен уже быть поднят (Шаг A) — build() ходит в него по HTTP
+uv run python -c "
+from pathlib import Path
+from backend.rag.config import DEFAULT
+from backend.rag.index import build
+build(DEFAULT, Path('backend/rag/artifacts'))
+"
 ```
 
-### Прогнать тесты на текущем индексе
+На момент T-11 у `backend/rag/` нет отдельного CLI-скрипта для этого — только сама
+функция `backend.rag.index.build()`; однострочник выше — временный обходной путь,
+не «официальная» команда.
 
-```powershell
-uv run python experiments-rag-params/prod_full_eval.py
-# -> experiments-rag-params/runs/prod_eval_{formal,conversational}_<ts>.json
-#    (src_recall@k, quote_hit@k, mrr, latency, сгенерированные ответы)
-```
-
-### Примечания
-
-- `build_wiki_index.py` перед перезаписью кладёт текущий `chunks.jsonl` в
-  `chunks.jsonl.bak` (страховка на один шаг назад; на несколько переключений не
-  полагаться — raw-индекс всегда детерминированно пересобирается через `rag.ingest`).
-- Если машина офлайн (эмбеддер `bge-m3` уже скачан в `models/hub`), включи офлайн-режим
-  HuggingFace перед `rag.index`:
-  ```powershell
-  $env:HF_HUB_OFFLINE = '1'; uv run python -m rag.index
-  ```
-- `quote_hit` на compiled KB ≈ 0 по построению (wiki перефразирует НПА, а метрика ищет
-  дословную цитату) — качество compiled-индекса меряется по `src_recall`/MRR и по самим
-  ответам, не по `quote_hit`. См. `experiments-rag-params/RESULTS.md`.
+Подробности grid-тюнинга, выбор модели, ограничения — [`BACKEND.md`](BACKEND.md).

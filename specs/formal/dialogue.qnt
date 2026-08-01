@@ -208,6 +208,27 @@ module dialogue {
     committed' = committed, dropped' = dropped,
   }
 
+  // FOUND BY THE IMPLEMENTATION, not by the checker — the mirror image of
+  // finishTailThroughOverlap.
+  //
+  // Generation takes real time, and an implementation that steps the machine on every
+  // incoming audio chunk needs a legal action for "still generating, nothing happened".
+  // Formulating was the only state without such a self-loop: Greeting has greetingPlays,
+  // Listening has idleTicks and userKeepsTalking, Speaking has speechPlays, Closing has
+  // closingPlays. Here the only actions were draftReady and draftAbandoned, so every tick
+  // was forced to end the state.
+  //
+  // The checker could not catch this: it is free to simply not take a step, so nothing
+  // was ever stuck. Real time is not free that way.
+  action formulatingWaits = all {
+    agent == Formulating,
+    draft == Building,
+    agent' = Formulating,
+    userSpeaking' = userSpeaking, turnLen' = turnLen,
+    idleLen' = 0, overlapLen' = 0, speechLeft' = speechLeft,
+    draft' = draft, committed' = committed, dropped' = dropped,
+  }
+
   // Spec: "если мы ещё не начали отдавать аудио, а человек продолжил речь — мы
   // отказываемся полностью и просто не добавляем в память тот ответ".
   action draftAbandoned = all {
@@ -367,7 +388,7 @@ module dialogue {
     userStartsSpeaking,
     userKeepsTalking, userTurnEnds, reachTalkLimit, idleTicks, idleHangup,
     interjectDeclined, interjectAccepted,
-    draftReady, draftAbandoned,
+    draftReady, draftAbandoned, formulatingWaits,
     speechPlays, speechCompletes, overlapGrows, overlapTriggersDecision,
     finishTailThroughOverlap,
     bargeInAccepted, bargeInDeclined,

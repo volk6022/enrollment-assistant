@@ -1,0 +1,70 @@
+# Build context для backend/Dockerfile — WORKDIR /app, контекст сборки = корень репо
+# (backend/Dockerfile копирует backend/ и dialogue/ явными COPY, всё остальное сюда
+# попадать не должно: и веса, и legacy-код, и venv раздувают контекст без пользы).
+
+# Секреты / локальный .env — попадает в контейнер через `env_file:` в docker-compose.yml,
+# не через COPY. Класть его в образ нельзя: тогда он "запекается" в слой навсегда.
+.env
+*.env.local
+
+# Модели — НЕ копируются в образ (FR-31), монтируются volume'ом из MODELS_DIR.
+models/
+*.gguf
+*.safetensors
+*.bin
+vosk_models/
+.cache/
+
+# RAG-артефакты / данные — тоже volume, не слой образа (см. docker-compose.yml).
+backend/rag/artifacts/
+rag/artifacts/
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Виртуальные окружения хоста — образ строит свой venv через `uv sync` внутри сборки
+.venv/
+venv/
+env/
+.uv/
+
+# Legacy / не нужны рантайму нового backend (см. комментарий в backend/Dockerfile)
+rag/
+services/
+experiment-docx-processing/
+experiment-streaming/
+experiment-stt/
+experiment-tts/
+experiments-rag-params/
+demo.py
+backend.py
+ecosystem.config.js
+
+# gui — отдельный build context (gui/Dockerfile, T-10), не нужен backend-образу
+gui/
+
+# Тесты / спеки / документация — не нужны рантайму
+tests/
+specs/
+docs/
+.specify/
+.claude/
+*.md
+что вообще предстоит ещё сделать.txt
+
+# Git / OS / editor
+.git/
+.gitignore
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+.voice-cache/
+*.log

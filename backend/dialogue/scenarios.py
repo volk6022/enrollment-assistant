@@ -347,6 +347,7 @@ class Scenario:
     next_state: AgentState
     enabled: bool
     order_index: int
+    line: int
 
 
 # ---------------------------------------------------------------------------
@@ -682,7 +683,7 @@ def _parse_action(
 
 _VALID_STATE_NAMES = {state.value for state in AgentState}
 _SCENARIO_ALLOWED_KEYS = {"enabled", "description", "entry_states", "priority", "when", "actions", "next_state"}
-_TOP_LEVEL_ALLOWED_KEYS = {"version", "last_modified", "scenarios", "substitutions"}
+_TOP_LEVEL_ALLOWED_KEYS = {"version", "last_modified", "scenarios", "substitutions", "system_prompt"}
 
 
 def _parse_state_name(path: Path, scenario_name: str, raw: Any, line: int, field_label: str) -> AgentState:
@@ -758,6 +759,7 @@ def _parse_scenario(
         next_state=next_state,
         enabled=enabled,
         order_index=order_index,
+        line=line,
     )
 
 
@@ -775,7 +777,58 @@ def _parse_substitutions(path: Path, raw: Any, fallback_line: int) -> dict[str, 
     return substitutions
 
 
-def _parse_document(path: Path, doc: Any) -> tuple[tuple[Scenario, ...], dict[str, str]]:
+def _parse_system_prompt(path: Path, raw: Any, top_line: int) -> str:
+    if not isinstance(raw, str) or not raw.strip():
+        raise _fail(
+            path,
+            top_line,
+            "system_prompt обязателен и не может быть пустым — системный промпт агента "
+            "живёт в scenarios.yaml, а не захардкожен в коде (T-09)",
+        )
+    return raw.strip()
+
+
+def _check_no_scenario_is_permanently_shadowed(path: Path, scenarios: tuple[Scenario, ...]) -> None:
+    """A scenario with no `when:` at all (`AlwaysTrue`) matches every time
+    its `entry_states` applies, no exceptions -- so any OTHER enabled
+    scenario sharing that state and ranked below it (lower `priority`, or
+    equal priority and later in the file) can never win a single match,
+    regardless of what its own `when:` says. That is not a heuristic: an
+    unconditional scenario is a candidate on literally every call, so
+    nothing ranked below it in the same state is ever reachable. Caught
+    here, at load time, because it was previously caught by hand, in
+    production-adjacent editing of `scenarios.yaml` (see the coordinator's
+    report on `late_question` vs. `idle_hangup_farewell` both being
+    unconditional in `Closing`).
+
+    Deliberately narrow: only the exact absence of a `when:` block counts
+    as "unconditional" here. A `when:` that happens to be a tautology (e.g.
+    an `any:` enumerating every valid `intent` value) is not detected --
+    that would require evaluating condition semantics, not just syntax, and
+    would risk false positives this module has no way to rule out.
+    """
+    enabled = [scenario for scenario in scenarios if scenario.enabled]
+    for state in AgentState:
+        applicable = sorted(
+            (scenario for scenario in enabled if state in scenario.entry_states),
+            key=lambda scenario: (-scenario.priority, scenario.order_index),
+        )
+        shadowing_scenario: Scenario | None = None
+        for scenario in applicable:
+            if shadowing_scenario is not None:
+                raise _fail(
+                    path,
+                    scenario.line,
+                    f"сценарий '{scenario.name}' никогда не сработает в состоянии "
+                    f"'{state.value}': безусловный сценарий '{shadowing_scenario.name}' "
+                    f"(строка {shadowing_scenario.line}, priority {shadowing_scenario.priority}) "
+                    f"ранжируется выше и подходит всегда",
+                )
+            if isinstance(scenario.condition, AlwaysTrue):
+                shadowing_scenario = scenario
+
+
+def _parse_document(path: Path, doc: Any) -> tuple[tuple[Scenario, ...], dict[str, str], str]:
     if doc is None:
         raise _fail(path, 1, "файл сценариев пуст")
     if not isinstance(doc, dict):
@@ -786,6 +839,7 @@ def _parse_document(path: Path, doc: Any) -> tuple[tuple[Scenario, ...], dict[st
     if unknown_keys:
         raise _fail(path, top_line, f"неизвестные ключи верхнего уровня: {sorted(unknown_keys)}")
 
+    system_prompt = _parse_system_prompt(path, doc.get("system_prompt"), top_line)
     substitutions = _parse_substitutions(path, doc.get("substitutions"), top_line)
 
     scenarios_raw = doc.get("scenarios")
@@ -797,7 +851,8 @@ def _parse_document(path: Path, doc: Any) -> tuple[tuple[Scenario, ...], dict[st
         _parse_scenario(path, name, body, order_index, scenarios_line, substitutions)
         for order_index, (name, body) in enumerate(scenarios_raw.items())
     )
-    return scenarios, substitutions
+    _check_no_scenario_is_permanently_shadowed(path, scenarios)
+    return scenarios, substitutions, system_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -814,6 +869,7 @@ class ScenarioRegistry:
 
     scenarios: tuple[Scenario, ...]
     substitutions: dict[str, str]
+    system_prompt: str
     by_name: dict[str, Scenario] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -825,14 +881,16 @@ class ScenarioRegistry:
         Raises `ScenarioValidationError` naming the file and line on any
         problem -- bad YAML syntax, an unknown condition/action/state, a
         duplicate key, a param of the wrong shape, an unresolved `{phone}`
-        substitution. Callers (T-09/app.py) are expected to call this once
-        at process startup and let the exception propagate: a scenario
-        that can never match because of a typo is a production incident
-        waiting to happen, not something to discover mid-session.
+        substitution, a missing/blank `system_prompt`, or a scenario that
+        can never win because a higher-ranked unconditional scenario
+        already shares its state. Callers (T-09/app.py) are expected to
+        call this once at process startup and let the exception propagate:
+        a scenario that can never match because of a typo is a production
+        incident waiting to happen, not something to discover mid-session.
         """
         doc = _load_yaml_document(path)
-        scenarios, substitutions = _parse_document(path, doc)
-        return cls(scenarios=scenarios, substitutions=substitutions)
+        scenarios, substitutions, system_prompt = _parse_document(path, doc)
+        return cls(scenarios=scenarios, substitutions=substitutions, system_prompt=system_prompt)
 
     def match(self, state: AgentState, context: ScenarioContext) -> Scenario | None:
         """The single scenario that applies to `state` under `context`, or

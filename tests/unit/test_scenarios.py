@@ -8,10 +8,20 @@ The load-bearing cases, each tied to a specific contract clause:
   the closed vocabulary (condition, action, state), and the exception must
   point at the offending line so the fix doesn't require bisecting the
   file by hand.
+* `test_*system_prompt*` -- T-09's finding: the agent's system prompt lives
+  in `scenarios.yaml` (`system_prompt:`, top-level), not hardcoded in
+  `session.py`, and is required -- a service with no system prompt must not
+  start, not silently run with an empty string.
 * `test_priority_resolves_the_higher_number` /
   `test_priority_tie_breaks_by_file_order` -- scenarios.yaml's own rule:
   "среди подходящих побеждает наибольший priority; при равенстве — тот,
   что выше в файле".
+* `test_two_unconditional_scenarios_*` / `test_unconditional_scenario_
+  shadows_*` / `test_higher_priority_conditional_before_unconditional_is_
+  fine` -- the dead-code guard added after the coordinator hand-hit exactly
+  this: `late_question` and `idle_hangup_farewell` were both unconditional
+  in `Closing`, and the higher-priority one would have permanently silenced
+  the other. Caught at load time now instead of by manual review.
 * `test_nested_all_any_not_*` -- the vocabulary comment's "Условия
   соединяются через `all:` (И) и `any:` (ИЛИ). Вложенность допустима",
   plus the bare `not <condition>` string form actually used in the file
@@ -48,6 +58,8 @@ from backend.dialogue.scenarios import (
 
 _REAL_SCENARIOS_PATH = Path(__file__).resolve().parents[2] / "dialogue" / "scenarios.yaml"
 
+_SYSTEM_PROMPT_LINE = 'system_prompt: "Ты голосовой помощник приёмной комиссии."\n'
+
 
 def _write(tmp_path: Path, text: str, name: str = "scenarios.yaml") -> Path:
     path = tmp_path / name
@@ -55,7 +67,20 @@ def _write(tmp_path: Path, text: str, name: str = "scenarios.yaml") -> Path:
     return path
 
 
-_MINIMAL_VALID = """
+def _doc(body: str) -> str:
+    """Prepends a valid `system_prompt:` to a `scenarios:`-only YAML body.
+
+    `system_prompt` is required (see `test_missing_system_prompt_fails_
+    load`), so every fixture that isn't specifically testing that
+    requirement needs one -- centralized here rather than repeated in each
+    of the ~25 fixtures below, so the one test that omits it is the only
+    place doing so on purpose.
+    """
+    return _SYSTEM_PROMPT_LINE + body
+
+
+_MINIMAL_VALID = _doc(
+    """
 scenarios:
   greet_back:
     entry_states: [Listening]
@@ -64,6 +89,7 @@ scenarios:
       - action: noop
     next_state: Listening
 """
+)
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +100,8 @@ scenarios:
 def test_broken_yaml_syntax_fails_and_names_the_line(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   bad:
     entry_states: [Listening]
@@ -84,7 +111,8 @@ scenarios:
         params:
           text: "unterminated
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError) as excinfo:
         ScenarioRegistry.load(path)
@@ -96,7 +124,8 @@ scenarios:
 def test_unknown_condition_fails_and_names_the_scenario_and_line(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   typo_condition:
     entry_states: [Listening]
@@ -107,7 +136,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError) as excinfo:
         ScenarioRegistry.load(path)
@@ -127,7 +157,8 @@ scenarios:
 def test_unknown_enum_value_in_condition_fails_load(tmp_path: Path, condition: str) -> None:
     path = _write(
         tmp_path,
-        f"""
+        _doc(
+            f"""
 scenarios:
   bad_enum:
     entry_states: [Listening]
@@ -138,7 +169,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError):
         ScenarioRegistry.load(path)
@@ -147,7 +179,8 @@ scenarios:
 def test_unknown_action_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   bad_action:
     entry_states: [Listening]
@@ -155,7 +188,8 @@ scenarios:
     actions:
       - action: sing_a_song
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError) as excinfo:
         ScenarioRegistry.load(path)
@@ -165,7 +199,8 @@ scenarios:
 def test_unknown_entry_state_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   bad_state:
     entry_states: [Listenning]
@@ -173,7 +208,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError) as excinfo:
         ScenarioRegistry.load(path)
@@ -183,7 +219,8 @@ scenarios:
 def test_unknown_next_state_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   bad_next_state:
     entry_states: [Listening]
@@ -191,7 +228,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Closingg
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError) as excinfo:
         ScenarioRegistry.load(path)
@@ -201,7 +239,8 @@ scenarios:
 def test_action_missing_required_param_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   missing_param:
     entry_states: [Listening]
@@ -209,7 +248,8 @@ scenarios:
     actions:
       - action: say
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError, match="say"):
         ScenarioRegistry.load(path)
@@ -218,7 +258,8 @@ scenarios:
 def test_action_with_extra_param_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   extra_param:
     entry_states: [Listening]
@@ -228,7 +269,8 @@ scenarios:
         params:
           unexpected: 1
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError):
         ScenarioRegistry.load(path)
@@ -237,7 +279,8 @@ scenarios:
 def test_action_param_wrong_type_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   wrong_type:
     entry_states: [Listening]
@@ -248,7 +291,8 @@ scenarios:
           instruction: "do it"
           use_rag: "yes"
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError, match="use_rag"):
         ScenarioRegistry.load(path)
@@ -257,7 +301,8 @@ scenarios:
 def test_duplicate_scenario_name_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   dup:
     entry_states: [Listening]
@@ -271,7 +316,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError):
         ScenarioRegistry.load(path)
@@ -286,7 +332,8 @@ def test_unknown_top_level_key_fails_load(tmp_path: Path) -> None:
 def test_unknown_scenario_key_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   bad_key:
     entry_states: [Listening]
@@ -295,7 +342,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError, match="bogus_field"):
         ScenarioRegistry.load(path)
@@ -313,7 +361,7 @@ def test_missing_file_fails_load(tmp_path: Path) -> None:
 
 
 def test_empty_scenarios_section_fails_load(tmp_path: Path) -> None:
-    path = _write(tmp_path, "scenarios: {}\n")
+    path = _write(tmp_path, _doc("scenarios: {}\n"))
     with pytest.raises(ScenarioValidationError):
         ScenarioRegistry.load(path)
 
@@ -321,7 +369,8 @@ def test_empty_scenarios_section_fails_load(tmp_path: Path) -> None:
 def test_unknown_placeholder_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   bad_placeholder:
     entry_states: [Listening]
@@ -331,7 +380,8 @@ scenarios:
         params:
           text: "hello {nonexistent}"
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError, match="nonexistent"):
         ScenarioRegistry.load(path)
@@ -340,7 +390,8 @@ scenarios:
 def test_phone_placeholder_without_substitution_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   needs_phone:
     entry_states: [Listening]
@@ -350,7 +401,8 @@ scenarios:
         params:
           text: "call {phone}"
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError, match="phone"):
         ScenarioRegistry.load(path)
@@ -359,7 +411,8 @@ scenarios:
 def test_interject_accepted_outside_deciding_interject_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   scoped_wrong:
     entry_states: [Listening]
@@ -370,7 +423,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError, match="DecidingInterject"):
         ScenarioRegistry.load(path)
@@ -379,7 +433,8 @@ scenarios:
 def test_bargein_accepted_outside_deciding_bargein_fails_load(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   scoped_wrong:
     entry_states: [Listening]
@@ -390,10 +445,209 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     with pytest.raises(ScenarioValidationError, match="DecidingBargeIn"):
         ScenarioRegistry.load(path)
+
+
+# ---------------------------------------------------------------------------
+# system_prompt
+# ---------------------------------------------------------------------------
+
+
+def test_missing_system_prompt_fails_load(tmp_path: Path) -> None:
+    # Deliberately NOT using _doc()/_MINIMAL_VALID -- this is the one
+    # fixture that must omit system_prompt on purpose.
+    path = _write(
+        tmp_path,
+        """
+scenarios:
+  greet_back:
+    entry_states: [Listening]
+    priority: 10
+    actions:
+      - action: noop
+    next_state: Listening
+""",
+    )
+    with pytest.raises(ScenarioValidationError, match="system_prompt"):
+        ScenarioRegistry.load(path)
+
+
+def test_blank_system_prompt_fails_load(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        'system_prompt: "   "\n'
+        + """
+scenarios:
+  greet_back:
+    entry_states: [Listening]
+    priority: 10
+    actions:
+      - action: noop
+    next_state: Listening
+""",
+    )
+    with pytest.raises(ScenarioValidationError, match="system_prompt"):
+        ScenarioRegistry.load(path)
+
+
+def test_system_prompt_wrong_type_fails_load(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "system_prompt: 12345\n"
+        + """
+scenarios:
+  greet_back:
+    entry_states: [Listening]
+    priority: 10
+    actions:
+      - action: noop
+    next_state: Listening
+""",
+    )
+    with pytest.raises(ScenarioValidationError, match="system_prompt"):
+        ScenarioRegistry.load(path)
+
+
+def test_system_prompt_is_exposed_and_stripped(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "system_prompt: |\n  Строка первая.\n  Строка вторая.\n\n"
+        + """
+scenarios:
+  greet_back:
+    entry_states: [Listening]
+    priority: 10
+    actions:
+      - action: noop
+    next_state: Listening
+""",
+    )
+    registry = ScenarioRegistry.load(path)
+    assert registry.system_prompt == "Строка первая.\nСтрока вторая."
+
+
+# ---------------------------------------------------------------------------
+# Dead-code guard: an unconditional scenario permanently shadows anything
+# ranked below it in the same state.
+# ---------------------------------------------------------------------------
+
+
+def test_two_unconditional_scenarios_in_same_state_fails_load(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        _doc(
+            """
+scenarios:
+  higher_unconditional:
+    entry_states: [Closing]
+    priority: 90
+    actions:
+      - action: noop
+    next_state: Listening
+  lower_unconditional:
+    entry_states: [Closing]
+    priority: 50
+    actions:
+      - action: noop
+    next_state: Closing
+"""
+        ),
+    )
+    with pytest.raises(ScenarioValidationError, match="lower_unconditional") as excinfo:
+        ScenarioRegistry.load(path)
+    assert "higher_unconditional" in str(excinfo.value)
+
+
+def test_unconditional_scenario_shadows_lower_priority_conditional_scenario_fails_load(
+    tmp_path: Path,
+) -> None:
+    path = _write(
+        tmp_path,
+        _doc(
+            """
+scenarios:
+  always_wins:
+    entry_states: [Listening]
+    priority: 90
+    actions:
+      - action: noop
+    next_state: Listening
+  never_reached:
+    entry_states: [Listening]
+    priority: 10
+    when:
+      all:
+        - intent == "question"
+    actions:
+      - action: noop
+    next_state: Speaking
+"""
+        ),
+    )
+    with pytest.raises(ScenarioValidationError, match="never_reached"):
+        ScenarioRegistry.load(path)
+
+
+def test_higher_priority_conditional_before_unconditional_is_fine(tmp_path: Path) -> None:
+    # always_reachable is unconditional but LOWER priority than a
+    # conditional scenario -- it still wins whenever the conditional one's
+    # `when` is false, so it is NOT dead code and load must succeed.
+    path = _write(
+        tmp_path,
+        _doc(
+            """
+scenarios:
+  sometimes_wins:
+    entry_states: [Listening]
+    priority: 90
+    when:
+      all:
+        - intent == "question"
+    actions:
+      - action: noop
+    next_state: Speaking
+  always_reachable:
+    entry_states: [Listening]
+    priority: 10
+    actions:
+      - action: noop
+    next_state: Listening
+"""
+        ),
+    )
+    registry = ScenarioRegistry.load(path)
+    fallback = registry.match(AgentState.LISTENING, ScenarioContext(intent="goodbye", confidence=0.9))
+    assert fallback is not None
+    assert fallback.name == "always_reachable"
+
+
+def test_unconditional_scenarios_in_different_states_do_not_conflict(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        _doc(
+            """
+scenarios:
+  closing_farewell:
+    entry_states: [Closing]
+    priority: 50
+    actions:
+      - action: noop
+    next_state: Closing
+  listening_fallback:
+    entry_states: [Listening]
+    priority: 50
+    actions:
+      - action: noop
+    next_state: Listening
+"""
+        ),
+    )
+    registry = ScenarioRegistry.load(path)
+    assert len(registry.scenarios) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -404,24 +658,32 @@ scenarios:
 def test_priority_resolves_the_higher_number(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   low:
     entry_states: [Listening]
     priority: 10
+    when:
+      all:
+        - intent == "question"
     actions:
       - action: noop
     next_state: Listening
   high:
     entry_states: [Listening]
     priority: 90
+    when:
+      all:
+        - intent == "question"
     actions:
       - action: noop
     next_state: Closing
-""",
+"""
+        ),
     )
     registry = ScenarioRegistry.load(path)
-    winner = registry.match(AgentState.LISTENING, ScenarioContext())
+    winner = registry.match(AgentState.LISTENING, ScenarioContext(intent="question", confidence=0.9))
     assert winner is not None
     assert winner.name == "high"
 
@@ -429,24 +691,32 @@ scenarios:
 def test_priority_tie_breaks_by_file_order(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   first_in_file:
     entry_states: [Listening]
     priority: 50
+    when:
+      all:
+        - intent == "question"
     actions:
       - action: noop
     next_state: Listening
   second_in_file:
     entry_states: [Listening]
     priority: 50
+    when:
+      all:
+        - intent == "question"
     actions:
       - action: noop
     next_state: Closing
-""",
+"""
+        ),
     )
     registry = ScenarioRegistry.load(path)
-    winner = registry.match(AgentState.LISTENING, ScenarioContext())
+    winner = registry.match(AgentState.LISTENING, ScenarioContext(intent="question", confidence=0.9))
     assert winner is not None
     assert winner.name == "first_in_file"
 
@@ -460,7 +730,8 @@ def test_match_returns_none_when_nothing_applies(tmp_path: Path) -> None:
 def test_disabled_scenario_never_matches(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   off:
     enabled: false
@@ -469,7 +740,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     registry = ScenarioRegistry.load(path)
     assert registry.match(AgentState.LISTENING, ScenarioContext()) is None
@@ -483,7 +755,8 @@ scenarios:
 def _nested_registry(tmp_path: Path) -> ScenarioRegistry:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   nested:
     entry_states: [Listening]
@@ -498,7 +771,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     return ScenarioRegistry.load(path)
 
@@ -526,7 +800,8 @@ def test_nested_all_any_not_rejects_when_not_branch_fails(tmp_path: Path) -> Non
 def test_bare_not_prefix_string_form(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        """
+        _doc(
+            """
 scenarios:
   bare_not:
     entry_states: [DecidingInterject]
@@ -537,7 +812,8 @@ scenarios:
     actions:
       - action: noop
     next_state: Listening
-""",
+"""
+        ),
     )
     registry = ScenarioRegistry.load(path)
     assert registry.match(AgentState.DECIDING_INTERJECT, ScenarioContext(interject_accepted=False)) is not None
@@ -610,6 +886,12 @@ def real_registry() -> ScenarioRegistry:
 def test_real_scenarios_file_loads_without_error(real_registry: ScenarioRegistry) -> None:
     assert len(real_registry.scenarios) == 12
     assert real_registry.substitutions["phone"] == "+7 (XXX) XXX-XX-XX"
+
+
+def test_real_scenarios_file_has_a_nonblank_system_prompt(real_registry: ScenarioRegistry) -> None:
+    assert real_registry.system_prompt.strip() == real_registry.system_prompt
+    assert len(real_registry.system_prompt) > 0
+    assert "приёмной комиссии" in real_registry.system_prompt
 
 
 def test_match_does_not_raise_when_sibling_scenario_needs_unset_field(real_registry: ScenarioRegistry) -> None:
@@ -735,11 +1017,14 @@ def test_bargein_continue_matches_rejected_decision(real_registry: ScenarioRegis
     assert winner.actions[0].kind == ActionKind.RESUME_SPEAKING
 
 
-def test_late_question_matches_unconditionally_in_closing(real_registry: ScenarioRegistry) -> None:
+def test_idle_hangup_farewell_matches_unconditionally_in_closing(real_registry: ScenarioRegistry) -> None:
+    # The automaton (not this scenario) owns the Closing transition itself
+    # (FR-26, `closingInterrupted`); idle_hangup_farewell only supplies what
+    # to say when idleHangup lands the agent in Closing.
     winner = real_registry.match(AgentState.CLOSING, ScenarioContext())
     assert winner is not None
-    assert winner.name == "late_question"
-    assert winner.next_state == AgentState.LISTENING
+    assert winner.name == "idle_hangup_farewell"
+    assert winner.actions[0].kind == ActionKind.SAY
 
 
 @pytest.mark.parametrize("state", [AgentState.LISTENING, AgentState.FORMULATING, AgentState.SPEAKING])
@@ -773,12 +1058,12 @@ def test_every_real_scenario_is_reachable_by_at_least_one_context(real_registry:
         "clarify_unclear",
         "answer_question",
         "smalltalk",
+        "idle_hangup_farewell",
         "no_kb_match",
         "interject_summarize",
         "interject_keep_listening",
         "bargein_yield",
         "bargein_continue",
-        "late_question",
         "service_unavailable",
     }
     assert set(real_registry.by_name) == expected_names

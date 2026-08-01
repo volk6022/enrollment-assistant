@@ -1,0 +1,36 @@
+# Rendered by the official nginx image's docker-entrypoint templating
+# (envsubst restricted to declared OS env vars only — nginx's own $vars like
+# $host/$uri are left untouched, see docker-entrypoint.sh in nginx:alpine).
+#
+# GUI_PORT, BACKEND_HOST, BACKEND_PORT come from the container environment
+# (docker-compose.yml, owned by T-11) — no backend URL is hardcoded here or
+# baked into the JS bundle; the browser only ever talks same-origin and this
+# proxy resolves it to wherever the backend container actually lives.
+server {
+    listen ${GUI_PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri /index.html;
+    }
+
+    location /ws/ {
+        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location ~ ^/(health|metrics|answer)$ {
+        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
