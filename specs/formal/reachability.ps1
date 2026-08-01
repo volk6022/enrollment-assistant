@@ -44,7 +44,15 @@ try {
     $dead = @()
     foreach ($p in $probes) {
         Write-Host ("  {0,-24}" -f $p.Replace('probe_', '')) -NoNewline
+        # Пробы ОБЯЗАНЫ нарушаться — контрпример здесь хороший исход. Но quint пишет
+        # «found a counterexample» в stderr, а PowerShell 5.1 под `2>&1` заворачивает
+        # каждую строку stderr нативной команды в ErrorRecord; при $ErrorActionPreference
+        # = "Stop" это валит скрипт на первой же успешной пробе. Гасим только на время
+        # вызова, чтобы не потерять строгость на остальном.
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         $out = & quint verify $specPath --invariant=$p --max-steps=$Steps --server-endpoint="localhost:$Port" 2>&1 | Out-String
+        $ErrorActionPreference = $prev
         if ($out -match '\[violation\]')  { Write-Host "достижимо" -ForegroundColor Green }
         elseif ($out -match '\[ok\]')     { Write-Host "МЁРТВОЕ СОСТОЯНИЕ" -ForegroundColor Red; $dead += $p }
         else                              { Write-Host "ошибка проверки" -ForegroundColor Yellow; Write-Host $out }
@@ -57,6 +65,9 @@ try {
         exit 1
     }
     Write-Host "все состояния достижимы" -ForegroundColor Green
+    # Иначе скрипт унаследует код возврата последнего `quint`, а тот на контрпримере
+    # выходит с единицей — то есть успешный прогон выглядел бы как провал в CI.
+    $global:LASTEXITCODE = 0
 } finally {
     if ($started -and $proc -and -not $proc.HasExited) {
         Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue

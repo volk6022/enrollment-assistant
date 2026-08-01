@@ -136,7 +136,9 @@ class DialogueSettings(_GroupSettings):
     dialogue_idle_hangup_s: float = Field(gt=0.0)
     dialogue_barge_in_overlap_s: float = Field(gt=0.0)
     dialogue_barge_in_min_tail_s: float = Field(ge=0.0)
-    dialogue_clarify_confidence: float = Field(ge=0.0, le=1.0)
+    # Порога уточнения здесь намеренно нет: он живёт литералом в `when:` сценария
+    # `clarify_unclear` (dialogue/scenarios.yaml), рядом со своим `priority`.
+    # Держать его ещё и тут значило бы иметь две правды об одном числе.
 
     transcript_buffer_chars: int = Field(gt=0)
     dialogue_history_max_turns: int = Field(gt=0)

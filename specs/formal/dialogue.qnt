@@ -321,9 +321,14 @@ module dialogue {
   //--------------------------------------------------------------------------
   // closing
   //--------------------------------------------------------------------------
+  // The `not(userSpeaking)` guard is not decoration: without it the model allows either
+  // closingPlays or closingInterrupted while the user is talking, and says nothing about
+  // which. Implementations then pick, and the pick is invisible in the model. We always
+  // want the cancel, so the model says so.
   action closingPlays = all {
     agent == Closing,
     speechLeft > 0,
+    not(userSpeaking),
     speechLeft' = speechLeft - 1,
     agent' = Closing, userSpeaking' = userSpeaking, turnLen' = turnLen,
     idleLen' = idleLen, overlapLen' = 0,
