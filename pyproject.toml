@@ -29,6 +29,7 @@ dependencies = [
     "silero-vad>=5.1",            # детекция речи, CPU (T-02)
     "soxr>=0.5",                  # ресемплинг в пост-цепочке TTS
     "ruaccent>=1.5.8",            # расстановка ударений перед синтезом
+    "omegaconf>=2.3",             # нужен torch.hub.load для silero_tts (T-05)
     "langgraph>=0.2",             # автомат диалога (T-07)
     "python-multipart>=0.0.9",    # загрузка аудио через POST /answer
 ]
