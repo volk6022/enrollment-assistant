@@ -41,9 +41,10 @@ from backend.dialogue.nodes import DialogueThresholds
 from backend.dialogue.scenarios import ScenarioRegistry
 from backend.llm.client import LlamaClient
 from backend.rag.config import RagSettings
+from backend.rag.index import RagArtifactsMissingError
 from backend.rag.pipeline import RagPipeline
 from backend.stt.whisper_worker import WhisperWorker
-from backend.telemetry import configure_logging, get_logger
+from backend.telemetry import Metrics, configure_logging, get_logger
 from backend.tts.silero_worker import SileroWorker
 from backend.ws.session import DialogueSession, SessionDependencies, ensure_greeting_audio, read_wav_pcm16
 
@@ -109,6 +110,28 @@ class _WorkerHealthAdapter:
         return {"loaded": True, "warm": self._worker.is_warm, "component": self._name}
 
 
+class _UnavailableRagPipeline:
+    """Stand-in for `RagPipeline` when `backend/rag/index.Indexes` couldn't
+    load the on-disk RAG artifacts (A-13 -- most commonly a clean clone,
+    `backend/rag/artifacts/` is `.gitignore`d and empty). `DialogueSession`
+    (`backend/ws/session.py`, T-09, not touched by this fix) only ever calls
+    `rag_pipeline.asearch(query, executor=...)` on a RAG_QUERY scenario
+    action, so matching that one method is enough to keep it working
+    unmodified: the call now raises the SAME descriptive
+    `RagArtifactsMissingError` built at startup (README.md "how to build the
+    index") instead of `AttributeError: 'NoneType' object has no attribute
+    'asearch'`, and that error is caught by the same `except Exception`
+    logging wrapper every other background answer-task failure already goes
+    through (session.py's `_answer_task`) -- it's reported, not a crash.
+    """
+
+    def __init__(self, error: RagArtifactsMissingError) -> None:
+        self._error = error
+
+    async def asearch(self, query: str, executor: object | None = None) -> tuple[list[dict], dict]:
+        raise self._error
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging(settings.log)
@@ -125,6 +148,7 @@ async def lifespan(app: FastAPI):
     app.state.ws_connections_active = 0
     app.state.stt_worker = None
     app.state.tts_worker = None
+    app.state.metrics = Metrics()  # T-12: shared with every DialogueSession via SessionDependencies.metrics
 
     # -- T-09: process-level singletons shared by every DialogueSession -----
     # (plan.md §2/§9 -- three dedicated single-worker pools, one LlamaClient,
@@ -170,7 +194,42 @@ async def lifespan(app: FastAPI):
     llama_client = LlamaClient(endpoint=settings.llm.llm_endpoint, timeout_s=settings.llm.llm_timeout_s)
 
     rag_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rag")
-    rag_pipeline = RagPipeline(artifacts_dir=settings.rag.faiss_index_path, settings=_build_rag_settings())
+    # A-13: a missing on-disk index (clean clone, backend/rag/artifacts/ is
+    # .gitignore'd -- README.md "RAG-индекс") must not crash lifespan. Before
+    # this try/except, `RagPipeline(...)` -> `Indexes.__init__` raised a bare
+    # `FileNotFoundError` straight out of `lifespan`, uvicorn exited non-zero,
+    # and `restart: unless-stopped` (docker-compose.yml) looped forever with
+    # nothing but a raw traceback in `docker compose logs` to explain why.
+    # Catching specifically `RagArtifactsMissingError` (not RAG errors in
+    # general -- a real bug in the index files should still fail loudly) logs
+    # ONE clear, actionable message and keeps the process running with RAG
+    # disabled: `/health` reports it, and any session that actually tries a
+    # RAG_QUERY gets the same descriptive error instead of a crash.
+    rag_unavailable_reason: str | None = None
+    try:
+        rag_pipeline: RagPipeline | _UnavailableRagPipeline = RagPipeline(
+            artifacts_dir=settings.rag.faiss_index_path, settings=_build_rag_settings()
+        )
+    except RagArtifactsMissingError as exc:
+        rag_unavailable_reason = str(exc)
+        rag_pipeline = _UnavailableRagPipeline(exc)
+        await logger.aerror(
+            "rag_index_missing",
+            artifacts_dir=str(settings.rag.faiss_index_path),
+            missing=exc.missing,
+            detail=rag_unavailable_reason,
+        )
+        await logger.awarning(
+            "backend_starting_degraded",
+            reason="rag_index_missing",
+            detail=(
+                "starting WITHOUT a RAG index -- /health.rag reports this; RAG_QUERY "
+                "scenario actions will fail with the same message above until the "
+                "index is built or copied in (see the rag_index_missing log line / "
+                "README.md 'RAG-индекс')"
+            ),
+        )
+    app.state.rag_unavailable_reason = rag_unavailable_reason
 
     # Falls loudly on a typo in scenarios.yaml (dialogue/scenarios.py's own
     # contract) -- process must not start with a scenario that can never
@@ -188,6 +247,7 @@ async def lifespan(app: FastAPI):
         thresholds=_build_thresholds(),
         greeting_pcm16=greeting_pcm16,
         greeting_duration_ms=greeting_duration_ms,
+        metrics=app.state.metrics,
     )
     await logger.ainfo(
         "backend_ready",
@@ -262,6 +322,7 @@ async def health() -> JSONResponse:
         check["reachable"] for check in (llm_check, embedding_check, reranker_check)
     )
 
+    rag_reason: str | None = getattr(app.state, "rag_unavailable_reason", None)
     body = {
         "status": "ok" if llama_reachable else "degraded",
         "llm": llm_check,
@@ -269,6 +330,12 @@ async def health() -> JSONResponse:
         "reranker": reranker_check,
         "stt": _worker_health(app.state.stt_worker, "stt"),
         "tts": _worker_health(app.state.tts_worker, "tts"),
+        # A-13: a missing RAG index is a distinct, separately-reported
+        # degradation from "llama-server unreachable" (README.md's own
+        # framing) -- it does not change `status`/the HTTP code above, only
+        # surfaces here so a human checking `/health` sees exactly what's
+        # missing and doesn't have to go spelunking in logs.
+        "rag": {"loaded": rag_reason is None} if rag_reason is None else {"loaded": False, "detail": rag_reason},
     }
     return JSONResponse(content=body, status_code=200 if llama_reachable else 503)
 
@@ -295,7 +362,11 @@ async def metrics() -> PlainTextResponse:
         "# TYPE backend_ws_connections_active gauge",
         f"backend_ws_connections_active {app.state.ws_connections_active}",
     ]
-    return PlainTextResponse(content="\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
+    # T-12: everything below this point is DialogueSession-level telemetry
+    # (automaton transitions, decisions, LLM/RAG/STT/TTS call counts) --
+    # `Metrics.render_prometheus()` owns its own HELP/TYPE lines.
+    body = "\n".join(lines) + "\n" + app.state.metrics.render_prometheus()
+    return PlainTextResponse(content=body, media_type="text/plain; version=0.0.4")
 
 
 class AnswerRequest(BaseModel):

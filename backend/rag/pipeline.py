@@ -48,7 +48,7 @@ class RagPipeline:
         t: dict[str, float] = {}
 
         t0 = time.perf_counter()
-        candidates = _retrieve(query, self.idx, self.encoder, self.settings)
+        candidates = _retrieve(query, self.idx, self.encoder, self.settings, timings=t)
         t["retrieve_ms"] = (time.perf_counter() - t0) * 1000
 
         t0 = time.perf_counter()

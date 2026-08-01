@@ -27,6 +27,47 @@ from backend.rag.gguf_encoder_client import GgufEncoderClient
 
 _LEGACY_CHUNKS = Path(__file__).resolve().parent.parent.parent / "rag" / "artifacts" / "chunks.jsonl"
 
+# The three files `Indexes` needs resident (`build()` above writes all three,
+# plus `dense.npy` which nothing at load time actually reads back).
+_REQUIRED_ARTIFACTS = ("chunks.jsonl", "dense.faiss", "bm25.pkl")
+
+
+class RagArtifactsMissingError(RuntimeError):
+    """A-13: `artifacts_dir` doesn't have a built RAG index yet.
+
+    This is the expected state of `backend/rag/artifacts/` right after a
+    clean clone -- the directory is `.gitignore`d (chunk/vector data is not
+    committed, README.md "RAG-индекс"). Before this exception existed,
+    `Indexes.__init__` let a bare `FileNotFoundError` from `Path.read_text()`
+    (or a faiss/pickle error, depending on which file was missing first)
+    propagate straight out of FastAPI's `lifespan`, which is *not* an
+    internal message a human can act on, and under `restart: unless-stopped`
+    (docker-compose.yml) that repeats forever with no way to see it without
+    already knowing to run `docker compose logs`.
+
+    `backend/app.py`'s lifespan catches this specific exception (not RAG
+    errors in general) and keeps the process running with RAG disabled
+    instead of letting the exception crash startup -- see the comment there.
+    """
+
+    def __init__(self, artifacts_dir: Path, missing: list[str]) -> None:
+        self.artifacts_dir = artifacts_dir
+        self.missing = missing
+        super().__init__(
+            f"RAG index not found in {artifacts_dir} (missing: {', '.join(missing)}). "
+            "This is expected on a clean clone -- backend/rag/artifacts/ is "
+            ".gitignore'd, no index is committed. To fix, either:\n"
+            "  (a) copy an already-built backend/rag/artifacts/ from another "
+            "machine (chunks.jsonl + dense.faiss + dense.npy + bm25.pkl), or\n"
+            "  (b) build it here: start the embedding llama-server "
+            "(scripts/serve-models.ps1 / .sh, EMBEDDING_ENDPOINT), then run "
+            "`Copy-Item rag\\artifacts\\chunks.jsonl backend\\rag\\artifacts\\chunks.jsonl` "
+            "followed by `python -c \"from pathlib import Path; from backend.rag.config "
+            "import DEFAULT; from backend.rag.index import build; "
+            f"build(DEFAULT, Path(r'{artifacts_dir}'))\"`.\n"
+            "Full procedure: README.md 'RAG-индекс' / 'Legacy: пересборка RAG-индекса'."
+        )
+
 
 def tokenize_ru(text: str) -> list[str]:
     text = re.sub(r"[^a-zа-яё0-9]+", " ", (text or "").lower())
@@ -80,6 +121,11 @@ class Indexes:
 
     def __init__(self, artifacts_dir: Path):
         import faiss
+
+        artifacts_dir = Path(artifacts_dir)
+        missing = [name for name in _REQUIRED_ARTIFACTS if not (artifacts_dir / name).is_file()]
+        if missing:
+            raise RagArtifactsMissingError(artifacts_dir, missing)
 
         self.chunks = load_chunks(artifacts_dir / "chunks.jsonl")
         self.index = faiss.read_index(str(artifacts_dir / "dense.faiss"))

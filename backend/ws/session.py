@@ -126,7 +126,7 @@ from backend.llm.prompts import build_answer_messages, build_intent_prompt
 from backend.llm.schemas import IntentDecision
 from backend.rag.pipeline import RagPipeline
 from backend.stt.whisper_worker import TranscriptionResult, WhisperWorker
-from backend.telemetry import get_logger
+from backend.telemetry import Metrics, get_logger
 from backend.tts.silero_worker import SileroWorker, SynthesisResult
 
 logger = get_logger(__name__)
@@ -264,6 +264,8 @@ class RecordedDecision:
 class _RecordingDecisionClient:
     inner: DecisionClient
     clock: SessionClock
+    session_id: str = ""
+    metrics: Metrics | None = None
     history: list[RecordedDecision] = field(default_factory=list)
 
     async def decide(
@@ -272,28 +274,46 @@ class _RecordingDecisionClient:
         started = time.perf_counter()
         result = await self.inner.decide(prompt, schema, max_tokens=max_tokens)
         latency_ms = (time.perf_counter() - started) * 1000
+        kind: str | None
+        outcome: bool
         if "interject" in schema["properties"]:
-            self.history.append(
-                RecordedDecision(
-                    kind="interject",
-                    at_ms=self.clock.now_ms(),
-                    result=bool(result["interject"]),
-                    reason=str(result.get("reason", "")),
-                    latency_ms=latency_ms,
-                    payload=result,
-                )
-            )
+            kind, outcome = "interject", bool(result["interject"])
         elif "interrupt" in schema["properties"]:
-            self.history.append(
-                RecordedDecision(
-                    kind="barge_in",
-                    at_ms=self.clock.now_ms(),
-                    result=bool(result["interrupt"]),
-                    reason=str(result.get("reason", "")),
-                    latency_ms=latency_ms,
-                    payload=result,
-                )
+            kind, outcome = "barge_in", bool(result["interrupt"])
+        else:
+            # `IntentDecision` (FR-21/FR-22) also goes through `decide()` but
+            # isn't part of the FR-07/FR-13 `decisions` telemetry block
+            # (contracts/websocket.md §3.6's example only ever shows
+            # interject/barge_in) -- still counted in `Metrics`, just not
+            # appended to `history`/`pop_last`'s two known kinds.
+            kind, outcome = None, False
+        if kind is not None:
+            recorded = RecordedDecision(
+                kind=kind,
+                at_ms=self.clock.now_ms(),
+                result=outcome,
+                reason=str(result.get("reason", "")),
+                latency_ms=latency_ms,
+                payload=result,
             )
+            self.history.append(recorded)
+            # T-12: "каждое решение LLM с reason и латентностью" (tasks.md
+            # T-12) -- logged the instant the decision lands, not deferred to
+            # whatever later reads `history`/`pop_last` (interject/barge_in
+            # resolution can happen many ticks later, or -- FR-08 -- never,
+            # if the automaton moved on before consuming it).
+            await get_logger(__name__).ainfo(
+                "llm_decision",
+                session_id=self.session_id,
+                kind=kind,
+                result=outcome,
+                reason=recorded.reason,
+                latency_ms=round(latency_ms, 1),
+            )
+            if self.metrics is not None:
+                self.metrics.record_decision(kind, outcome)
+        if self.metrics is not None:
+            self.metrics.llm_decide_calls_total += 1
         return result
 
     def pop_last(self, kind: str) -> RecordedDecision | None:
@@ -324,6 +344,13 @@ class SessionDependencies:
     thresholds: DialogueThresholds
     greeting_pcm16: bytes
     greeting_duration_ms: int
+    # T-12: process-wide `/metrics` counters (backend/telemetry.py). Defaulted
+    # so existing callers (tests/integration/conftest.py's `session_deps`
+    # fixture, built before this task) keep constructing `SessionDependencies`
+    # unmodified -- each gets its own private `Metrics()` instance rather than
+    # sharing `backend/app.py`'s process-wide one, which is correct for tests
+    # anyway (no cross-test counter bleed).
+    metrics: Metrics = field(default_factory=Metrics)
 
 
 # ---------------------------------------------------------------------------
@@ -400,7 +427,9 @@ class DialogueSession:
             overlap_threshold_ms=int(self._settings.dialogue.dialogue_barge_in_overlap_s * 1000),
         )
         self._memory = DialogueMemory(max_transcript_chars=self._settings.dialogue.transcript_buffer_chars)
-        self._decision_recorder = _RecordingDecisionClient(inner=deps.llama_client, clock=self._clock)
+        self._decision_recorder = _RecordingDecisionClient(
+            inner=deps.llama_client, clock=self._clock, session_id=session_id, metrics=deps.metrics
+        )
         self._machine = DialogueMachine(decision_client=self._decision_recorder, thresholds=deps.thresholds)
         self._automaton = AutomatonState(
             dialogue=DialogueState(
@@ -452,6 +481,19 @@ class DialogueSession:
         self._draft_scenario: str | None = None
         self._draft_history_snapshot = ""
         self._pending_farewell: SynthesisResult | None = None
+
+        # T-12 telemetry state -- last-value gauges feeding `_send_meta`'s
+        # `meta.timings_ms`/`meta.retrieval`/`meta.canonical_query`
+        # (contracts/websocket.md §3.6). All "last since the previous meta
+        # send", not per-session running values -- `meta` is a snapshot of
+        # "what just happened for this turn", matching the legacy service's
+        # per-turn "Технические данные" panel (gui-spec-current.md §6).
+        self._last_stt_partial_ms = 0.0
+        self._prefill_last_ms = 0.0
+        self._last_canonical_query = ""
+        self._last_rag_chunks: tuple[dict[str, Any], ...] = ()
+        self._last_rag_timings: dict[str, float] = {}
+        self._tts_first_chunk_ms: float | None = None  # set once per draft, cleared in _reset_draft
 
     # -- entry point ---------------------------------------------------
 
@@ -541,6 +583,114 @@ class DialogueSession:
 
     async def _flush_audio(self, reason: str) -> None:
         await self._send_json({"type": "audio.flush", "reason": reason})
+
+    async def _send_meta(self) -> None:
+        """`meta` telemetry (contracts/websocket.md §3.6) -- FR-29's
+        "Технические данные" panel parity (`docs/gui-spec-current.md` §6),
+        plus the `decisions` block this task adds (T-12, tasks.md: "без
+        которого поведение агента невозможно разобрать на записи"). Called
+        from `_run_scenario`'s tail (once per completed scenario -- covers
+        every SAY/RAG_QUERY/SAY_GENERATED turn) and from `_on_transition`
+        for the two decision outcomes that DON'T run a fresh scenario
+        (DecidingInterject -> Listening's "keep listening", FR-08) so a
+        decision is never stuck waiting for the next full turn to become
+        visible on the wire.
+
+        Every field is a last-value snapshot built from measurements this
+        module already took elsewhere (`LlamaClient.last_stream_timings`/
+        `last_decide_timings`, `RagPipeline.search`'s per-component dict,
+        `TranscriptionResult.wall_s`, `SynthesisResult.wall_s`) -- a field
+        genuinely not exercised this turn reports 0/empty, never a guess
+        (CLAUDE.md's "не изобретай факты" applies here as much as to wiki
+        content: telemetry that lies is worse than telemetry that's silent).
+        """
+        llm = self._deps.llama_client
+        stream = llm.last_stream_timings
+        decide = llm.last_decide_timings
+
+        prompt_tokens = stream.prompt_tokens if stream else 0
+        predicted_tokens = stream.predicted_tokens if stream else 0
+        cached_tokens = stream.cached_tokens if stream else 0
+        gen_wall_s = stream.wall_s if stream else 0.0
+        tps = (predicted_tokens / gen_wall_s) if stream and gen_wall_s > 0 else 0.0
+        ttft_ms = (stream.ttft_s * 1000) if stream and stream.ttft_s is not None else 0.0
+
+        rag_idx = getattr(self._deps.rag_pipeline, "idx", None)
+        n_chunks = len(getattr(rag_idx, "chunks", None) or [])
+
+        timings_ms = {
+            "embed_ms": round(self._last_rag_timings.get("embed_ms", 0.0), 1),
+            "dense_ms": round(self._last_rag_timings.get("dense_ms", 0.0), 1),
+            "bm25_ms": round(self._last_rag_timings.get("bm25_ms", 0.0), 1),
+            "rrf_ms": round(self._last_rag_timings.get("rrf_ms", 0.0), 1),
+            "rerank_ms": round(self._last_rag_timings.get("rerank_ms", 0.0), 1),
+            "search_ms": round(self._last_rag_timings.get("search_ms", 0.0), 1),
+            # No separate query-rephrasing step exists in this backend (that
+            # was legacy `rag/rephrase.py`, not ported -- T-04's own
+            # docstring) -- `IntentDecision.query` (llm.md §4.3) fills the
+            # same "canonical query" role, so its `decide()` latency is the
+            # closest honest equivalent of the legacy `rephrase_ms` field.
+            "rephrase_ms": round((decide.wall_s * 1000) if decide else 0.0, 1),
+            "gen_ms": round(gen_wall_s * 1000, 1),
+            "prefill_ms": round(self._prefill_last_ms, 1),
+            "ttft_ms": round(ttft_ms, 1),
+            "tts_first_chunk_ms": round(self._tts_first_chunk_ms or 0.0, 1),
+            "stt_partial_ms": round(self._last_stt_partial_ms, 1),
+            # Not in websocket.md §3.6's field list -- added per tasks.md
+            # T-12's explicit instruction: "timings_ms должен показывать
+            # cached_tokens, а не факт установки cache_prompt" (llm.md §6 --
+            # `cache_prompt: true` is set on every call in llm/client.py
+            # regardless of outcome; THIS number is what actually varies,
+            # and collapses to 0 below llm.md §6's ~61-token cache floor).
+            "cached_tokens": cached_tokens,
+        }
+
+        payload = {
+            "engine": "streaming-dialogue",
+            "conversational": True,
+            "canonical_query": self._last_canonical_query,
+            "config": {
+                "model": self._settings.llm.llm_model_file,
+                "final_top": self._settings.rag.rag_top_k,
+                "fused_top": self._settings.rag.rag_fused_top,
+                "temperature": self._settings.llm.llm_temperature,
+                "max_tokens": self._settings.llm.llm_max_tokens,
+                "n_chunks": n_chunks,
+            },
+            "generation": {
+                "prompt_tokens": prompt_tokens,
+                "answer_tokens": predicted_tokens,
+                "tps": round(tps, 1),
+                # Always empty by design, never populated: reasoning is
+                # suppressed via the pre-filled closed `<think>` block
+                # (llm/client.py's module docstring), not merely hidden.
+                "reasoning": "",
+            },
+            "retrieval": [
+                {
+                    "point": str(c.get("point", "")),
+                    "rank": i + 1,
+                    "rerank_score": round(float(c.get("rerank_score", 0.0)), 4),
+                    "rrf_score": float(c.get("rrf_score", 0.0)),
+                    "section_path": c.get("section_path", []),
+                    "source": str(c.get("source", "")),
+                    "text": str(c.get("text", "")),
+                }
+                for i, c in enumerate(self._last_rag_chunks)
+            ],
+            "timings_ms": timings_ms,
+            "decisions": [
+                {
+                    "kind": d.kind,
+                    "at_ms": d.at_ms,
+                    "result": d.result,
+                    "reason": d.reason,
+                    "latency_ms": round(d.latency_ms, 1),
+                }
+                for d in self._decision_recorder.history
+            ],
+        }
+        await self._send_json({"type": "meta", "payload": payload})
 
     # -- greeting (FR-01/FR-02/FR-03) ------------------------------------
 
@@ -633,10 +783,26 @@ class DialogueSession:
         asyncio.create_task(self._on_partial_result(task.result()))
 
     async def _on_partial_result(self, result: TranscriptionResult) -> None:
+        # T-12 telemetry, `meta.timings_ms` (contracts/websocket.md §3.6):
+        # `result.wall_s` is the real whisper decode latency
+        # (`WhisperWorker._run`, plan.md §3.3's "троттлинг STT" is a
+        # separate concern from this number). `_prefill_last_ms` measures the
+        # OTHER half of NFR-02/NFR-01's "prefill по ходу речи" story: the
+        # cost of appending this partial's new suffix into
+        # `DialogueMemory`'s transcript buffer, which is what actually keeps
+        # the llama-server prefix warm (llm.md §6 -- "докладывается по ходу
+        # речи"). Both are last-value gauges, not per-call histograms: `meta`
+        # is sent once per turn (`_send_meta`), and only the LAST partial
+        # before turn-end is representative of "how warm was the prefix when
+        # generation started".
+        self._deps.metrics.stt_partial_calls_total += 1
+        self._last_stt_partial_ms = result.wall_s * 1000
         suffix = _diff_suffix(self._last_partial_text, result.text)
         self._last_partial_text = result.text
         if suffix:
+            t0 = time.perf_counter()
             self._memory.append_transcript(suffix, result.window_start_ms, result.window_end_ms)
+            self._prefill_last_ms = (time.perf_counter() - t0) * 1000
         await self._send_json(
             {
                 "type": "transcript.update",
@@ -812,13 +978,32 @@ class DialogueSession:
     # -- state-transition reactions --------------------------------------
 
     async def _on_transition(self, previous: AgentState, current: AgentState, event: AutomatonInput) -> None:
-        await self._send_json({"type": "state", "agent": current.value, "prev": previous.value, "at_ms": self._clock.now_ms()})
+        at_ms = self._clock.now_ms()
+        # T-12: "каждый переход автомата" logged in JSON here -- this is the
+        # ONE place every actual `dialogue.qnt` state change passes through
+        # (`_run_automaton_step`'s `if new_agent is not previous_agent`
+        # guard), so it can't miss a transition or double-count a same-state
+        # tick. Logged BEFORE the client-facing `state` message below so a
+        # server-side log line always exists even if the socket send fails.
+        await logger.ainfo(
+            "state_transition", session_id=self._session_id, prev=previous.value, agent=current.value, at_ms=at_ms
+        )
+        self._deps.metrics.record_transition(previous.value, current.value)
+        await self._send_json({"type": "state", "agent": current.value, "prev": previous.value, "at_ms": at_ms})
         if previous is AgentState.GREETING and current is AgentState.LISTENING:
             await self._on_greeting_ended(interrupted=event.user_speaking)
         elif previous is AgentState.LISTENING and current is AgentState.FORMULATING:
             self._answer_task = asyncio.create_task(self._handle_turn_ended())
         elif previous is AgentState.DECIDING_INTERJECT and current is AgentState.FORMULATING:
             self._answer_task = asyncio.create_task(self._handle_interject_accepted())
+        elif previous is AgentState.DECIDING_INTERJECT and current is AgentState.LISTENING:
+            # FR-08 "listen further": no scenario runs for this outcome (the
+            # automaton just returns to Listening), so `_run_scenario`'s own
+            # `_send_meta()` tail never fires for it -- send here instead so
+            # the interject decision (already logged by
+            # `_RecordingDecisionClient.decide`) isn't stuck waiting for the
+            # NEXT turn's meta to become visible on the wire.
+            await self._send_meta()
         elif previous is AgentState.FORMULATING and current is AgentState.LISTENING:
             await self._on_draft_abandoned()
         elif previous is AgentState.SPEAKING and current is AgentState.LISTENING:
@@ -944,7 +1129,22 @@ class DialogueSession:
                 await self._speak_fixed_text(text)
             elif action.kind is ActionKind.RAG_QUERY:
                 query = registry.render(action.query or "", ctx)
-                chunks, timings = await self._deps.rag_pipeline.asearch(query, executor=self._deps.rag_executor)
+                try:
+                    chunks, timings = await self._deps.rag_pipeline.asearch(query, executor=self._deps.rag_executor)
+                except Exception as exc:  # noqa: BLE001 -- A-13's spirit at runtime, not just
+                    # startup: a missing/broken RAG index (RagArtifactsMissingError from
+                    # backend/app.py's `_UnavailableRagPipeline`, or any other RAG failure)
+                    # must degrade this turn to an honest "no context found" (A-11), never
+                    # crash `_answer_task` silently -- before this try/except, an unhandled
+                    # exception here only ever surfaced as an orphaned-task warning in
+                    # asyncio's own logger, with the user hearing nothing at all.
+                    await logger.aerror("rag_query_failed", session_id=self._session_id, query=query, error=str(exc))
+                    self._deps.metrics.record_error("rag_query_failed")
+                    chunks, timings = [], {}
+                self._deps.metrics.rag_queries_total += 1
+                self._last_canonical_query = query
+                self._last_rag_chunks = tuple(chunks)
+                self._last_rag_timings = timings
                 rag_context = _rag_context_text(tuple(chunks))
                 max_score = max((float(c.get("rerank_score", 0.0)) for c in chunks), default=0.0)
                 ctx = replace(ctx, rag_count=len(chunks), rag_max_score=max_score, rag_answer=rag_context)
@@ -963,13 +1163,43 @@ class DialogueSession:
                 await self._resume_speaking()
 
         await self._finish_draft_after_speaking(is_via_scenario=scenario.name)
+        await self._send_meta()
 
     # -- speaking: fixed text / generated streaming -----------------------
+
+    def _note_tts_synthesis(self, synthesis: SynthesisResult) -> None:
+        """T-12: `meta.timings_ms.tts_first_chunk_ms` (contracts/websocket.md
+        §3.6) -- `synthesis.wall_s` is the real `SileroWorker.synthesize()`
+        latency; only the FIRST call for the current draft counts (FR-11:
+        synthesis starts on the first completed sentence, so that first call
+        is the number that actually gates when audio starts playing).
+        """
+        self._deps.metrics.tts_synth_calls_total += 1
+        if self._tts_first_chunk_ms is None:
+            self._tts_first_chunk_ms = synthesis.wall_s * 1000
+
+    def _note_llm_stream_call(self) -> None:
+        """T-12: rolls one completed `stream_answer()` call's real timings
+        (`LlamaClient.last_stream_timings` -- llm.md §6's `cache_n`/`cache_
+        prompt` distinction lives in `cached_tokens` there, not a boolean)
+        into the process-wide `/metrics` counters. Only called after the
+        streaming loop in `_speak_generated` finishes WITHOUT an early
+        `return` (FR-12 dropped draft) or `LlamaServerError` -- a call that
+        never produced a usable answer shouldn't count as a completed one.
+        """
+        stream = self._deps.llama_client.last_stream_timings
+        if stream is None:
+            return
+        self._deps.metrics.llm_stream_calls_total += 1
+        self._deps.metrics.llm_prompt_tokens_total += stream.prompt_tokens
+        self._deps.metrics.llm_cached_tokens_total += stream.cached_tokens
+        self._deps.metrics.llm_predicted_tokens_total += stream.predicted_tokens
 
     async def _speak_fixed_text(self, text: str) -> None:
         if not text.strip():
             return
         synthesis = await self._deps.tts_worker.synthesize(text)
+        self._note_tts_synthesis(synthesis)
         self._draft_text = (self._draft_text + " " + text).strip() if self._draft_text else text
         await self._start_or_extend_speaking(synthesis)
 
@@ -998,10 +1228,13 @@ class DialogueSession:
                     # committed (dialogue.qnt's inv_dropped_never_committed).
                     return
                 synthesis = await self._deps.tts_worker.synthesize(sentence)
+                self._note_tts_synthesis(synthesis)
                 self._draft_text = (self._draft_text + " " + sentence).strip() if self._draft_text else sentence
                 await self._start_or_extend_speaking(synthesis)
+            self._note_llm_stream_call()
         except LlamaServerError as exc:
             await logger.aerror("stream_answer_failed", session_id=self._session_id, error=str(exc))
+            self._deps.metrics.record_error("stream_answer_failed")
             if not self._draft_text:
                 await self._speak_fixed_text("Простите, у меня сейчас сбой. Повторите, пожалуйста, вопрос.")
 
@@ -1127,6 +1360,7 @@ class DialogueSession:
         self._draft_timer_credited_ms = 0
         self._draft_scenario = None
         self._draft_history_snapshot = ""
+        self._tts_first_chunk_ms = None
 
     # -- Formulating -> Listening without audio (FR-12) -------------------
 
@@ -1215,6 +1449,9 @@ class DialogueSession:
         await logger.ainfo(
             "barge_in_accepted", session_id=self._session_id, reason=(decision.reason if decision else "")
         )
+        # `_run_scenario_actions_only` (unlike `_run_scenario`) has no
+        # `_send_meta()` tail of its own -- see that method's docstring.
+        await self._send_meta()
 
     async def _on_barge_in_declined(self) -> None:
         decision = self._decision_recorder.pop_last("barge_in")
@@ -1225,6 +1462,7 @@ class DialogueSession:
         await logger.ainfo(
             "barge_in_declined", session_id=self._session_id, reason=(decision.reason if decision else "")
         )
+        await self._send_meta()
 
     async def _run_scenario_actions_only(self, scenario: Scenario, ctx: ScenarioContext) -> None:
         """Like `_run_scenario` but without the trailing

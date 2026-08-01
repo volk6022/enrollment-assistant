@@ -171,17 +171,21 @@ backend-контейнера, в `./models` (переиспользуют то, 
 задачи: `/health` → `{"status":"ok", ..., "stt":{"warm":true},
 "tts":{"warm":true}}`, `RestartCount=0`). Оставшееся:
 
-- **RAG-индекс отсутствует → падение со стек-трейсом, не с internal-сообщением
-  (нарушение духа A-13).** Если `/data/faiss_index` (том из `backend/rag/artifacts/`)
-  не содержит `chunks.jsonl`, `backend.rag.index.Indexes.__init__` бросает
-  необработанный `FileNotFoundError` прямо из FastAPI `lifespan` —
-  `ERROR: Traceback (most recent call last): ...`, `Application startup failed.
-  Exiting.`, и `restart: unless-stopped` уходит в бесконечный цикл
-  перезапуска (наблюдал вживую при подготовке T-11, до восстановления
-  `backend/rag/artifacts/`). Это отдельная история от «весов нет» (та ветка,
-  через `backend/config.py`, работает чисто — см. ниже), и файлы, где это
-  нужно чинить (`backend/app.py` lifespan или `backend/rag/pipeline.py`), вне
-  периметра T-11 (`backend/` кроме `Dockerfile`). Флагирую, не правлю.
+- ~~**RAG-индекс отсутствует → падение со стек-трейсом, не с internal-сообщением
+  (нарушение духа A-13).**~~ **Починено в T-12.** `backend.rag.index.Indexes.__init__`
+  теперь явно проверяет наличие `chunks.jsonl`/`dense.faiss`/`bm25.pkl` и бросает
+  `RagArtifactsMissingError` — сообщение называет ровно чего не хватает и как
+  собрать/скопировать индекс (те же шаги, что ниже в этом файле). `backend/app.py`'s
+  `lifespan` ловит именно это исключение (не RAG-ошибки вообще — реальная поломка
+  файлов индекса по-прежнему падает громко), логирует одну internal-строку
+  (`rag_index_missing`) и продолжает работать БЕЗ RAG: `restart: unless-stopped`
+  больше не уходит в цикл, `/health.rag` отдаёт `{"loaded": false, "detail": "..."}`
+  с тем же текстом, а любой `RAG_QUERY` в рантайме получает то же самое
+  описательное исключение вместо `AttributeError`. Проверено вживую (не только
+  рассуждением): `backend/rag/artifacts/` переименовывался, `python -m backend.app`
+  поднимался и оставался живым (`Uvicorn running`, `/health` отдавал 200/503 по
+  llama-статусу, но НЕ падал), затем каталог восстанавливался и второй прогон
+  показывал `"rag":{"loaded":true}` без единого лишнего лога — см. отчёт задачи T-12.
 - Полный диалоговый цикл (A-01…A-11, живой голос) не прогонялся в рамках
   T-11 — это T-09/T-12. Проверено только то, что относится к докеризации:
   контейнеры стартуют, `/health` зелёный, GUI отдаётся и проксирует на

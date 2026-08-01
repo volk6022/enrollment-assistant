@@ -1,0 +1,116 @@
+0.00.156.236 I log_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.156.249 I device_info:
+0.00.362.626 I   - CUDA0   : NVIDIA GeForce RTX 3060 Ti (8191 MiB, 7126 MiB free)
+0.00.362.647 I   - CPU     : AMD Ryzen 5 2600 Six-Core Processor             (24512 MiB, 14247 MiB free)
+0.00.362.791 I system_info: n_threads = 6 (n_threads_batch = 6) / 12 | CUDA : ARCHS = 750,800,860,890,1200,1210 | USE_GRAPHS = 1 | PEER_MAX_BATCH_SIZE = 128 | CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.00.362.799 W srv          main: embeddings enabled with n_batch (2048) > n_ubatch (512)
+0.00.362.801 W srv          main: setting n_batch = n_ubatch = 512 to avoid assertion failure
+0.00.362.811 I srv          main: n_parallel is set to auto, using n_parallel = 4 and kv_unified = true
+0.00.362.891 I srv          init: running without SSL
+0.00.362.929 I srv          init: using 11 threads for HTTP server
+0.00.363.365 I srv         start: binding port with default address family
+0.00.368.834 I srv          main: loading model
+0.00.368.866 I srv    load_model: loading model 'E:\voice-agent\enrollment-assistant\models\gguf\bge-m3-q8_0.gguf'
+0.00.368.952 I common_init_result: fitting params to device memory ...
+0.00.368.954 I common_init_result: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+0.02.756.967 W load: model vocab missing newline token, using special_pad_id instead
+0.06.777.597 I common_init_from_params: warming up the model with an empty run - please wait ... (--no-warmup to disable)
+0.06.812.175 I srv    load_model: initializing slots, n_slots = 4
+0.06.812.177 W srv    load_model: speculative decoding not supported by this context
+0.06.812.194 I slot   load_model: id  0 | task -1 | new slot, n_ctx = 8192
+0.06.812.196 I slot   load_model: id  1 | task -1 | new slot, n_ctx = 8192
+0.06.812.197 I slot   load_model: id  2 | task -1 | new slot, n_ctx = 8192
+0.06.812.198 I slot   load_model: id  3 | task -1 | new slot, n_ctx = 8192
+0.06.812.229 I srv    load_model: prompt cache is disabled - use `--cache-ram N` to enable it
+0.06.812.229 I srv    load_model: for more info see https://github.com/ggml-org/llama.cpp/pull/16391
+0.06.812.253 W srv          init: --cache-idle-slots requires --cache-ram, disabling
+0.06.816.985 I init: chat template, example_format: '<|im_start|>system
+You are a helpful assistant<|im_end|>
+<|im_start|>user
+Hello<|im_end|>
+<|im_start|>assistant
+Hi there<|im_end|>
+<|im_start|>user
+How are you?<|im_end|>
+<|im_start|>assistant
+'
+0.06.818.634 I srv          init: init: chat template, thinking = 0
+0.06.818.653 I srv          main: model loaded
+0.06.818.655 I srv          main: server is listening on http://127.0.0.1:20100
+0.06.818.662 I srv  update_slots: all slots are idle
+5.54.226.393 I slot get_availabl: id  3 | task -1 | selected slot by LRU, t_last = -1
+5.54.226.406 I slot launch_slot_: id  3 | task 0 | processing task, is_child = 0
+5.54.244.740 I slot      release: id  3 | task 0 | stop processing: n_tokens = 10, truncated = 0
+5.54.244.760 I srv  update_slots: all slots are idle
+6.21.595.030 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+6.21.595.039 I slot launch_slot_: id  3 | task 2 | processing task, is_child = 0
+6.21.600.901 I slot      release: id  3 | task 2 | stop processing: n_tokens = 10, truncated = 0
+6.21.600.912 I srv  update_slots: all slots are idle
+7.05.609.164 I slot get_availabl: id  2 | task -1 | selected slot by LRU, t_last = -1
+7.05.609.173 I slot launch_slot_: id  2 | task 4 | processing task, is_child = 0
+7.05.619.438 I slot      release: id  2 | task 4 | stop processing: n_tokens = 13, truncated = 0
+7.05.619.453 I srv  update_slots: all slots are idle
+8.59.181.328 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+8.59.181.336 I slot launch_slot_: id  3 | task 6 | processing task, is_child = 0
+8.59.187.261 I slot      release: id  3 | task 6 | stop processing: n_tokens = 10, truncated = 0
+8.59.187.269 I srv  update_slots: all slots are idle
+9.39.167.591 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+9.39.167.600 I slot launch_slot_: id  3 | task 8 | processing task, is_child = 0
+9.39.173.534 I slot      release: id  3 | task 8 | stop processing: n_tokens = 10, truncated = 0
+9.39.173.547 I srv  update_slots: all slots are idle
+10.06.301.448 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+10.06.301.460 I slot launch_slot_: id  3 | task 10 | processing task, is_child = 0
+10.06.307.541 I slot      release: id  3 | task 10 | stop processing: n_tokens = 10, truncated = 0
+10.06.307.550 I srv  update_slots: all slots are idle
+10.48.555.764 I slot get_availabl: id  2 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+10.48.555.773 I slot launch_slot_: id  2 | task 12 | processing task, is_child = 0
+10.48.561.746 I slot      release: id  2 | task 12 | stop processing: n_tokens = 13, truncated = 0
+10.48.561.757 I srv  update_slots: all slots are idle
+12.10.885.746 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+12.10.885.759 I slot launch_slot_: id  3 | task 14 | processing task, is_child = 0
+12.10.891.677 I slot      release: id  3 | task 14 | stop processing: n_tokens = 10, truncated = 0
+12.10.891.691 I srv  update_slots: all slots are idle
+12.38.287.554 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+12.38.287.563 I slot launch_slot_: id  3 | task 16 | processing task, is_child = 0
+12.38.293.747 I slot      release: id  3 | task 16 | stop processing: n_tokens = 10, truncated = 0
+12.38.293.765 I srv  update_slots: all slots are idle
+13.20.297.283 I slot get_availabl: id  2 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+13.20.297.292 I slot launch_slot_: id  2 | task 18 | processing task, is_child = 0
+13.20.303.399 I slot      release: id  2 | task 18 | stop processing: n_tokens = 13, truncated = 0
+13.20.303.427 I srv  update_slots: all slots are idle
+14.53.401.563 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+14.53.401.573 I slot launch_slot_: id  3 | task 20 | processing task, is_child = 0
+14.53.407.689 I slot      release: id  3 | task 20 | stop processing: n_tokens = 10, truncated = 0
+14.53.407.711 I srv  update_slots: all slots are idle
+20.05.488.929 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+20.05.488.939 I slot launch_slot_: id  3 | task 22 | processing task, is_child = 0
+20.05.495.023 I slot      release: id  3 | task 22 | stop processing: n_tokens = 10, truncated = 0
+20.05.495.041 I srv  update_slots: all slots are idle
+20.32.709.162 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+20.32.709.171 I slot launch_slot_: id  3 | task 24 | processing task, is_child = 0
+20.32.714.970 I slot      release: id  3 | task 24 | stop processing: n_tokens = 10, truncated = 0
+20.32.714.981 I srv  update_slots: all slots are idle
+21.14.920.560 I slot get_availabl: id  2 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+21.14.920.569 I slot launch_slot_: id  2 | task 26 | processing task, is_child = 0
+21.14.926.730 I slot      release: id  2 | task 26 | stop processing: n_tokens = 13, truncated = 0
+21.14.926.740 I srv  update_slots: all slots are idle
+23.07.079.038 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+23.07.079.047 I slot launch_slot_: id  3 | task 28 | processing task, is_child = 0
+23.07.084.959 I slot      release: id  3 | task 28 | stop processing: n_tokens = 10, truncated = 0
+23.07.084.968 I srv  update_slots: all slots are idle
+24.17.854.906 I slot get_availabl: id  3 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+24.17.854.916 I slot launch_slot_: id  3 | task 30 | processing task, is_child = 0
+24.17.860.922 I slot      release: id  3 | task 30 | stop processing: n_tokens = 10, truncated = 0
+24.17.860.935 I srv  update_slots: all slots are idle
+27.34.126.803 I slot get_availabl: id  2 | task -1 | selected slot by LCP similarity, sim_best = 0.143 (> 0.100 thold), f_keep = 0.077
+27.34.126.812 I slot launch_slot_: id  2 | task 32 | processing task, is_child = 0
+27.34.132.710 I slot      release: id  2 | task 32 | stop processing: n_tokens = 7, truncated = 0
+27.34.132.723 I srv  update_slots: all slots are idle
+28.06.290.861 I slot get_availabl: id  2 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+28.06.290.870 I slot launch_slot_: id  2 | task 34 | processing task, is_child = 0
+28.06.296.139 I slot      release: id  2 | task 34 | stop processing: n_tokens = 7, truncated = 0
+28.06.296.152 I srv  update_slots: all slots are idle
+28.33.398.879 I slot get_availabl: id  2 | task -1 | selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold), f_keep = 1.000
+28.33.398.887 I slot launch_slot_: id  2 | task 36 | processing task, is_child = 0
+28.33.407.078 I slot      release: id  2 | task 36 | stop processing: n_tokens = 7, truncated = 0
+28.33.407.088 I srv  update_slots: all slots are idle
