@@ -58,9 +58,15 @@ class AudioRing:
 ```python
 class VadGate:
     def feed(self, pcm: bytes, at_ms: int) -> VadEvent | None
+    def notify_agent_speaking(self, speaking: bool) -> None
 ```
 
 События: `SpeechStarted(speech_start_ms)`, `SpeechEnded(end_ms)`, `Overlap(duration_ms)`.
+
+`notify_agent_speaking` обязателен, потому что `VadGate` видит **только микрофон**, а
+перекрытие по определению требует знать, говорит ли в этот момент агент. Оркестрация сессии
+(T-09) дёргает его при старте и остановке воспроизведения. Без этого вызова `Overlap` никогда
+не сработает, и перебивание перестанет распознаваться — молча, без единой ошибки в логе.
 
 Ключевая деталь — **преролл** (FR-05). Детекция опаздывает; поэтому:
 

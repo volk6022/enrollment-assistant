@@ -58,7 +58,9 @@ class RagConfig:
     rrf_k: int = 60
     fused_top: int = 50      # candidates handed to the reranker (grid winner:
                              # best src_recall@5=0.88 / MRR=0.71 at ~354ms search)
-    final_top: int = 5       # chunks handed to the LLM
+    final_top: int = 10      # chunks handed to the LLM (was 5; raised 2026-07-31 —
+                             # the top_k sweep in experiments-rag-params/grid_quant_topk.py
+                             # is what re-validates this choice)
 
     # generation (llama.cpp server)
     # RAG_LLM_GGUF_OVERRIDE lets one-off experiment scripts (compare_run.py, the

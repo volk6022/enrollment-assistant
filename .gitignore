@@ -33,6 +33,7 @@ experiment-docx-processing/out/
 experiments-rag-params/runs/
 experiment-tts/grid_audio/
 rag/artifacts/
+backend/rag/artifacts/
 .voice-cache/
 *.log
 

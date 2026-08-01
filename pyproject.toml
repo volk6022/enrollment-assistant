@@ -5,9 +5,12 @@ description = "Stage-1 RAG pipeline + experiments for the enrollment assistant (
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "faiss-cpu>=1.8",
+    "fastapi>=0.139.0",
     "httpx[socks]>=0.28.1",
     "huggingface-hub[hf-transfer]>=1.23.0",
     "numpy>=2.4.4",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.6.0",
     "pymorphy3>=2.0.6",
     "pymorphy3-dicts-ru>=2.4.417150.4580142",
     "python-docx>=1.1.2",
@@ -15,7 +18,19 @@ dependencies = [
     "requests>=2.28.1",
     "sentence-transformers>=5.6.0",
     "socksio>=1.0.0",
+    "structlog>=24.4.0",
     "torch>=2.6.0",
+    "uvicorn[standard]>=0.51.0",
+    # --- потоковый ассистент (001-streaming-dialogue) ---
+    # Эти пакеты жили в .venv, не будучи объявленными здесь: их поставили руками, а
+    # `uv sync` их закономерно вычистил, уронив заодно и текущий voice-gateway.
+    # Объявлены явно, чтобы окружение восстанавливалось одной командой.
+    "faster-whisper>=1.2.1",      # STT, large-v3-turbo int8 на CUDA (T-05)
+    "silero-vad>=5.1",            # детекция речи, CPU (T-02)
+    "soxr>=0.5",                  # ресемплинг в пост-цепочке TTS
+    "ruaccent>=1.5.8",            # расстановка ударений перед синтезом
+    "langgraph>=0.2",             # автомат диалога (T-07)
+    "python-multipart>=0.0.9",    # загрузка аудио через POST /answer
 ]
 
 [tool.uv]
@@ -23,3 +38,9 @@ package = false
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cu124"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
