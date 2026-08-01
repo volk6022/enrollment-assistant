@@ -1,0 +1,322 @@
+# Dialogue Scenarios for Voice Assistant
+#
+# These scenarios describe how the agent should behave in different situations.
+# Each scenario is a set of paths through the FSM for a specific user intent.
+#
+# EDIT THIS FILE to add/change scenarios without touching code.
+# The backend loads and hot-reloads this on startup.
+
+scenarios:
+
+  # ============================================================================
+  # Basic interaction: user asks a question, agent answers and offers help
+  # ============================================================================
+
+  simple_question:
+    enabled: true
+    description: "User asks a question, agent retrieves answer from KB and offers more help"
+    entry_states: [Listening]
+
+    triggers:
+      - name: user_turn_ends_with_question
+        condition: "contains_question_mark(transcript) OR intent_score['question'] > 0.7"
+
+    actions:
+      - name: rag_query
+        params:
+          query: "latest_transcript"
+          top_k: 10
+
+      - name: llm_generate_answer
+        params:
+          system_prompt: "You are a helpful assistant for university admissions. Answer the question using the provided context. Be concise and friendly."
+          rag_context: "previous_action.rag_results"
+
+      - name: tts_synthesize
+        params:
+          text: |
+            {llm_answer}
+
+            Могу ли я вам ещё чем-нибудь помочь?
+
+    next_state: Listening
+
+  # ============================================================================
+  # Clarification: agent doesn't understand the question
+  # ============================================================================
+
+  clarify_unclear_question:
+    enabled: true
+    description: "User's intent is unclear, agent asks clarifying question"
+    entry_states: [Listening]
+
+    triggers:
+      - name: unclear_question
+        condition: "intent_score['clarity'] < 0.5 OR transcript_confidence < 0.6"
+
+    actions:
+      - name: llm_formulate_clarification
+        params:
+          system_prompt: "Ask a specific, helpful clarifying question. Don't repeat what they said."
+          user_input: "latest_transcript"
+
+      - name: tts_synthesize
+        params:
+          text: "{llm_clarification}"
+
+    next_state: Listening
+    priority: high  # More urgent than generic handling
+
+  # ============================================================================
+  # Long user speech: agent interrupts politely after 20 seconds
+  # ============================================================================
+
+  user_talks_too_long:
+    enabled: true
+    description: "User has been speaking for >= 20 seconds, agent offers to start searching"
+    entry_states: [DecidingInterject]
+
+    triggers:
+      - name: interject_decision_made
+        condition: "interject_accepted == true"
+
+    actions:
+      - name: llm_formulate_intermediate
+        params:
+          system_prompt: |
+            The user has been talking for a while. Summarize what you understand so far.
+            Offer to look up information. Be respectful and encouraging.
+          user_input: "dialogue_history"
+
+      - name: tts_synthesize
+        params:
+          text: |
+            {llm_summary}
+
+            Дайте-ка я сразу найду информацию...
+
+    next_state: Formulating
+
+  # ============================================================================
+  # No match in KB: agent offers to defer or escalate
+  # ============================================================================
+
+  no_kb_match:
+    enabled: true
+    description: "RAG didn't find relevant docs, agent acknowledges and offers help"
+    entry_states: [Formulating]
+
+    triggers:
+      - name: rag_empty_or_low_confidence
+        condition: "rag_results.count == 0 OR max(rag_results.scores) < 0.3"
+
+    actions:
+      - name: tts_synthesize
+        params:
+          text: |
+            К сожалению, я не нашёл информацию по этому вопросу.
+            Попробуйте переформулировать или связитесь с приёмной комиссией по телефону.
+            Номер: +7 (XXX) XXX-XX-XX
+
+    next_state: Listening
+    priority: high
+
+  # ============================================================================
+  # User interrupts agent mid-reply
+  # ============================================================================
+
+  user_barges_in:
+    enabled: true
+    description: "User starts talking while agent is speaking (overlap >= 1 sec)"
+    entry_states: [DecidingBargeIn]
+
+    triggers:
+      - name: bargein_decision_made
+        condition: "bargein_accepted == true"
+
+    actions:
+      # No TTS — we're yielding the floor. Just record the partial answer in memory.
+      - name: record_partial_answer
+        params:
+          draft: "current_draft"
+          status: "partial_committed"
+
+    next_state: Listening
+
+  # ============================================================================
+  # Agent yields to user, but user doesn't have anything to say
+  # ============================================================================
+
+  false_bargein:
+    enabled: true
+    description: "User made noise but didn't actually speak, agent resumes"
+    entry_states: [DecidingBargeIn]
+
+    triggers:
+      - name: bargein_decision_made
+        condition: "bargein_accepted == false"  # Agent decided to keep going
+
+    actions:
+      # Reset overlap timer, continue playing the TTS audio
+      - name: continue_speaking
+        params:
+          draft: "current_draft"
+
+    next_state: Speaking
+
+  # ============================================================================
+  # Silence after agent's response: graceful close
+  # ============================================================================
+
+  user_silent_hangup:
+    enabled: true
+    description: "After agent answer, >= 2 sec silence → say goodbye and close"
+    entry_states: [Listening]
+
+    triggers:
+      - name: idle_timeout
+        condition: "idleLen >= DIALOGUE_IDLE_HANGUP_S"
+
+    actions:
+      - name: tts_synthesize
+        params:
+          text: |
+            Спасибо за внимание!
+            Удачи вам на приёме.
+            До свидания!
+
+    next_state: Closing
+
+  # ============================================================================
+  # User interrupts the closing (rare but real)
+  # ============================================================================
+
+  late_question:
+    enabled: true
+    description: "Closing is playing, but user suddenly asks another question"
+    entry_states: [Closing]
+
+    triggers:
+      - name: user_interrupts_closing
+        condition: "userSpeaking == true AND closingPlaying == true"
+
+    actions:
+      # No response needed — just go back to Listening and let them ask
+      - name: restart_dialogue
+        params:
+          reset_history: false  # Keep the history we've built so far
+
+    next_state: Listening
+
+  # ============================================================================
+  # Special: user says "thank you" / "goodbye"
+  # ============================================================================
+
+  user_says_goodbye:
+    enabled: true
+    description: "User explicitly says goodbye or thanks, close gracefully"
+    entry_states: [Listening]
+
+    triggers:
+      - name: goodbye_utterance
+        condition: "intent_score['goodbye'] > 0.8 OR contains(['спасибо', 'пока', 'до свидания'], transcript)"
+
+    actions:
+      - name: tts_synthesize
+        params:
+          text: |
+            Спасибо, что обратились!
+            До встречи!
+
+    next_state: Closing
+    priority: high
+
+  # ============================================================================
+  # Debug/Error: STT failure, LLM timeout, etc.
+  # ============================================================================
+
+  connection_error:
+    enabled: true
+    description: "Network error or service unavailable"
+    entry_states: [Listening, Formulating, Speaking]
+
+    triggers:
+      - name: service_error
+        condition: "error_type in ['timeout', 'connection_refused', '500']"
+
+    actions:
+      - name: tts_synthesize
+        params:
+          text: |
+            Простите, сейчас проблема со связью.
+            Попробуем ещё раз.
+
+    next_state: Listening
+
+  stt_no_audio:
+    enabled: true
+    description: "Whisper returned empty transcription"
+    entry_states: [Listening]
+
+    triggers:
+      - name: empty_transcript
+        condition: "transcript.strip() == ''"
+
+    actions:
+      - name: tts_synthesize
+        params:
+          text: |
+            Я не расслышал. Повторите, пожалуйста.
+
+    next_state: Listening
+
+# ============================================================================
+# Thresholds and parameters (also in .env, but here for documentation)
+# ============================================================================
+
+thresholds:
+  # Seconds of uninterrupted user speech before agent decides to interject
+  DIALOGUE_INTERJECT_AFTER_S: 20
+
+  # Seconds of silence after agent's answer before closing the conversation
+  DIALOGUE_IDLE_HANGUP_S: 2
+
+  # Seconds of simultaneous speech before LLM decides on barge-in
+  DIALOGUE_BARGE_IN_OVERLAP_S: 1
+
+  # Minimum seconds of agent audio still to play for barge-in decision to make sense
+  DIALOGUE_BARGE_IN_MIN_TAIL_S: 2
+
+  # Confidence threshold for clarification trigger
+  DIALOGUE_CLARIFY_CONFIDENCE_THRESHOLD: 0.6
+
+# ============================================================================
+# Response templates (fallback/emergency)
+# ============================================================================
+
+templates:
+  dont_know: "К сожалению, я не нашёл информацию по этому вопросу. Свяжитесь с приёмной комиссией."
+  repeat_please: "Повторите, пожалуйста, я не расслышал."
+  connection_error: "Простите, проблема со связью. Пробуем ещё раз."
+  goodbye: "Спасибо за внимание. Удачи вам! До свидания."
+  error_generic: "Что-то пошло не так. Попробуйте ещё раз."
+
+# ============================================================================
+# Metadata
+# ============================================================================
+
+version: "1.0"
+created: 2026-08-01
+last_modified: 2026-08-01
+editor: "Ivan Volkov (Claude Code)"
+notes: |
+  Редактируйте этот файл напрямую для изменения логики диалога.
+  Нет необходимости перекомпилировать — changes reload on backend restart.
+
+  Синтаксис:
+  - enabled: true/false — включить/выключить сценарий
+  - entry_states: в каких состояниях автомата может запуститься
+  - triggers: условие(я) для запуска (в Python-подобном синтаксисе)
+  - actions: что делать (RAG, LLM, TTS)
+  - next_state: куда переходить после сценария
+  - priority: high = берёт приоритет над более низкими
