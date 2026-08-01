@@ -76,6 +76,9 @@ class RagSettings:
                                     # as "not in the knowledge base" (A-11); the actual
                                     # honest-refusal decision is downstream (dialogue/
                                     # generation), this package only carries the score.
+                                    # Scale is [0,1] (sigmoid applied in
+                                    # GgufEncoderClient.rerank(), not raw logits) --
+                                    # matches backend/config.py's Field(ge=0.0, le=1.0).
     rag_max_length: int = 256      # RAG_MAX_LENGTH -- informational; enforced server-side
                                     # by the reranker's llama-server instance, not by us.
     rag_batch_size: int = 32       # RAG_BATCH_SIZE -- texts per /v1/embeddings request.

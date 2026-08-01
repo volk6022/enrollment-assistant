@@ -25,6 +25,8 @@ this whole module has no `async def` in it on purpose.
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import requests
 
@@ -89,10 +91,27 @@ class GgufEncoderClient:
     # --- rerank ----------------------------------------------------------
 
     def rerank(self, query: str, docs: list[str]) -> list[float]:
-        """Score (query, doc) pairs via POST /v1/rerank. Returns raw relevance
-        scores in `docs` order. Scale is model-specific (raw logits, not a
-        0-1 probability) -- only relative ORDER is meaningful, which is all
-        the pipeline uses (plan.md §6: "для пайплайна важен только порядок").
+        """Score (query, doc) pairs via POST /v1/rerank. Returns relevance
+        scores in `docs` order, squashed through a sigmoid into [0, 1].
+
+        llama-server's `/v1/rerank` for a GGUF cross-encoder returns the raw
+        pre-activation logit, not a probability (unlike the legacy
+        `sentence_transformers.CrossEncoder.predict`, which applies a sigmoid
+        automatically for a single-label regression head such as
+        bge-reranker-v2-m3 -- see `rag/rerank.py`, the un-ported legacy path).
+        `RAG_MIN_SCORE` (`backend/config.py`'s `rag_min_score`, `Field(ge=0.0,
+        le=1.0)`) was calibrated against that [0,1] sigmoid scale and never
+        re-tuned for raw logits, so leaving the score unsquashed silently
+        turned the threshold into "reject almost everything" (raw logits
+        routinely sit well below 0, e.g. -2.8, while the field only accepts
+        values in [0,1]) -- see the RAG_MIN_SCORE bug investigation. Applying
+        sigmoid here, once, at the client boundary, restores the calibrated
+        scale for every caller (`backend/rag/rerank.py`'s top-k selection,
+        `backend/ws/session.py`'s `rag_max_score`/`RAG_MIN_SCORE` gate) without
+        having to touch the threshold or any downstream comparison -- sigmoid
+        is strictly monotonic, so relative ORDER (all the pipeline actually
+        needs per plan.md §6) is unchanged, only the numbers become
+        comparable to a [0,1] threshold again.
         """
         if not docs:
             return []
@@ -105,7 +124,20 @@ class GgufEncoderClient:
             raise EncoderClientError(f"rerank failed (HTTP {r.status_code}): {r.text[:300]}")
         payload = r.json()
         rows = payload.get("results") or payload.get("data") or []
-        scores = [0.0] * len(docs)
+        # -inf, not 0.0: a missing row means the server never scored that doc
+        # at all, and 0.0 is a real, fairly confident *logit* (sigmoid(0.0) ==
+        # 0.5, comfortably above RAG_MIN_SCORE=0.3) -- initializing with it
+        # used to make an unscored doc silently outrank/clear the threshold
+        # instead of being the least relevant thing in the batch. sigmoid(-inf)
+        # == 0.0 below, which is the actual "no evidence" score.
+        logits = [float("-inf")] * len(docs)
         for row in rows:
-            scores[row["index"]] = float(row["relevance_score"])
-        return scores
+            logits[row["index"]] = float(row["relevance_score"])
+        # 1/(1+e^-x) via expit's stable form -- avoids overflow in exp() for
+        # very negative logits (float overflow on exp(710+) raises, expit-style
+        # branching does not); exp(-inf) == 0.0 in Python, no special-casing
+        # needed for the missing-row sentinel above.
+        return [
+            1.0 / (1.0 + math.exp(-x)) if x >= 0 else math.exp(x) / (1.0 + math.exp(x))
+            for x in logits
+        ]

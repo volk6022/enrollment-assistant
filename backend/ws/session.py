@@ -17,14 +17,22 @@ reviewer can check them off against real code instead of prose:
    `SpeechStarted` for a chunk -- see `_enqueue_speech_start_ticks`. Nothing
    else can be interleaved between them because both `put_nowait()` calls
    happen without an `await` in between.
-2. **`decide()` is called by automaton nodes, never by this module.**
-   `_DecidingInterject`/`_DecidingBargeIn` (backend/dialogue/machine.py) own
-   that call; this module owns only the cheap non-LLM gate -- reporting
-   truthful `user_speaking`/`elapsed_ms`/`turn_ended` on every tick and
-   calling `DialogueMachine.step()`. Grep of this file for `.decide(` other
-   than inside `_RecordingDecisionClient` (a pass-through wrapper that exists
-   only to capture `reason`/`understood` for telemetry and `ScenarioContext`,
-   see below) should come back empty.
+2. **`decide()` for the two automaton-state decisions is called by automaton
+   nodes, never by this module.** `_DecidingInterject`/`_DecidingBargeIn`
+   (backend/dialogue/machine.py) own that call for FR-07/FR-13; this module
+   owns only the cheap non-LLM gate around them -- reporting truthful
+   `user_speaking`/`elapsed_ms`/`turn_ended` on every tick and calling
+   `DialogueMachine.step()`. This does NOT mean a grep of this file for
+   `.decide(` comes back empty outside `_RecordingDecisionClient` -- it
+   doesn't: `_handle_turn_ended` below calls `.decide()` directly for
+   `IntentDecision` (FR-21/FR-22). That is not a violation of the rule
+   above: `IntentDecision` has no corresponding `dialogue.qnt` state, so
+   plan.md §7's "нода владеет вызовом" ownership rule -- which is scoped to
+   `DecidingInterject`/`DecidingBargeIn` specifically -- simply doesn't
+   apply to it. A grep for `.decide(` in this file finds exactly two call
+   sites: `_RecordingDecisionClient.decide` (the pass-through wrapper below,
+   used by `DialogueMachine`'s two decision nodes) and this module's own
+   direct `IntentDecision` call.
 3. **`VadGate.notify_agent_speaking(bool)` is called on every playback
    start/stop** -- `_start_agent_audio` / `_stop_agent_audio`, wrapping
    greeting, every generated/fixed reply, and the farewell. Skipping this
@@ -103,6 +111,7 @@ import json
 import struct
 import time
 import wave
+from collections.abc import Coroutine
 from concurrent.futures import Executor
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -129,7 +138,51 @@ from backend.stt.whisper_worker import TranscriptionResult, WhisperWorker
 from backend.telemetry import Metrics, get_logger
 from backend.tts.silero_worker import SileroWorker, SynthesisResult
 
-logger = get_logger(__name__)
+class _SafeLogger:
+    """Wraps a structlog logger so a failure in the LOGGING MACHINERY itself
+    can never abort the code path it was only trying to describe. A log
+    line is diagnostic, never load-bearing.
+
+    Concretely observed on this project's own Windows dev/test box (defect
+    #1's delivery report): `configure_logging` (backend/telemetry.py) wires
+    `ConsoleRenderer` to print straight to `sys.stdout`, whose encoding is
+    the OS console codepage -- not guaranteed to be UTF-8. Any payload with
+    Cyrillic text (a RAG query, an LLM decision's `reason`, a transcript)
+    can raise `UnicodeEncodeError` from INSIDE the logging call. Before this
+    wrapper, `_run_scenario`'s own `rag_query` log line hitting exactly that
+    raised out of `_handle_turn_ended`, killed `_answer_task`, and test
+    A-11 got the recovery-path apology instead of the real "not found in
+    the knowledge base" answer the scenario was already producing correctly
+    -- the log line describing a successful RAG call took the successful
+    call down with it. `_spawn_answer_task`'s done-callback (see below)
+    stops an exception here from vanishing SILENTLY; this stops it from
+    happening at all for the one class of failure (logging infrastructure)
+    that has nothing to do with whether the turn itself succeeded.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+
+    async def _safe(self, method: str, *args: Any, **kwargs: Any) -> None:
+        try:
+            await getattr(self._inner, method)(*args, **kwargs)
+        except Exception:  # noqa: BLE001 -- logging failures are diagnostic-only, never fatal
+            pass
+
+    async def ainfo(self, *args: Any, **kwargs: Any) -> None:
+        await self._safe("ainfo", *args, **kwargs)
+
+    async def awarning(self, *args: Any, **kwargs: Any) -> None:
+        await self._safe("awarning", *args, **kwargs)
+
+    async def aerror(self, *args: Any, **kwargs: Any) -> None:
+        await self._safe("aerror", *args, **kwargs)
+
+    async def aexception(self, *args: Any, **kwargs: Any) -> None:
+        await self._safe("aexception", *args, **kwargs)
+
+
+logger = _SafeLogger(get_logger(__name__))
 
 # ---------------------------------------------------------------------------
 # Wire framing (contracts/websocket.md §2.1/§3.1) -- 4-byte LE uint32 prefix
@@ -173,14 +226,6 @@ _STREAMING_PLACEHOLDER_MS = 60_000
 `DialogueSession._finalize_speech_timer`'s docstring. Large enough that no
 realistic RAG+LLM+TTS gap between sentences exhausts it before the next
 sentence tops it up or the draft finishes and gets corrected down."""
-
-_SYSTEM_PROMPT = (
-    "Ты — голосовой ассистент приёмной комиссии института. Отвечаешь вслух, "
-    "поэтому говори разговорным языком, короткими фразами, без списков и "
-    "markdown-разметки. Не выдумывай факты: если ответа нет в предоставленном "
-    "контексте, честно скажи, что не нашёл, и предложи обратиться в приёмную "
-    "комиссию напрямую. Не повторяй вопрос собеседника перед ответом."
-)
 
 
 # ---------------------------------------------------------------------------
@@ -301,8 +346,12 @@ class _RecordingDecisionClient:
             # T-12) -- logged the instant the decision lands, not deferred to
             # whatever later reads `history`/`pop_last` (interject/barge_in
             # resolution can happen many ticks later, or -- FR-08 -- never,
-            # if the automaton moved on before consuming it).
-            await get_logger(__name__).ainfo(
+            # if the automaton moved on before consuming it). Uses the
+            # module-level `logger` (wrapped by `_SafeLogger`), not a fresh
+            # `get_logger(__name__)` call -- `reason` here is LLM-generated
+            # Russian text, exactly the kind of payload that can trip the
+            # console-codepage `UnicodeEncodeError` `_SafeLogger` exists for.
+            await logger.ainfo(
                 "llm_decision",
                 session_id=self.session_id,
                 kind=kind,
@@ -399,6 +448,19 @@ def _diff_suffix(previous: str, current: str) -> str:
     if not previous:
         return current
     return (" " if previous and not previous.endswith(" ") else "") + current
+
+
+def _log_fire_and_forget_failure(task: asyncio.Task[Any]) -> None:
+    """`add_done_callback` target for `DialogueSession._fire_and_forget`.
+    Module-level (not a bound method) since a `done_callback` runs
+    synchronously and must not itself be a coroutine; scheduling one more
+    task to actually log is the same trick `DialogueSession.
+    _on_answer_task_done` uses for the same reason."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        asyncio.create_task(logger.aerror("background_task_failed", error=repr(exc)))
 
 
 class DialogueSession:
@@ -756,7 +818,7 @@ class DialogueSession:
             # `VadGate`'s own `Overlap` event is logged here for telemetry
             # (it fires once per overlap episode, per FR-17's non-LLM gate)
             # but does not itself drive a `machine.step()` call.
-            asyncio.create_task(
+            self._fire_and_forget(
                 logger.ainfo("vad_overlap_detected", session_id=self._session_id, duration_ms=event.duration_ms, at_ms=offset_ms)
             )
 
@@ -778,9 +840,15 @@ class DialogueSession:
             return
         exc = task.exception()
         if exc is not None:
-            asyncio.create_task(logger.aerror("stt_partial_failed", error=str(exc)))
+            self._fire_and_forget(logger.aerror("stt_partial_failed", error=str(exc)))
             return
-        asyncio.create_task(self._on_partial_result(task.result()))
+        # `_fire_and_forget`, not a bare `asyncio.create_task` -- an
+        # exception inside `_on_partial_result` (e.g. `_send_json` racing a
+        # disconnect, `DialogueMemory.append_transcript`) would otherwise
+        # vanish the same way the defect #1 bug made `_answer_task`
+        # failures vanish, just with a smaller blast radius (one lost
+        # partial-transcript update instead of a stuck automaton).
+        self._fire_and_forget(self._on_partial_result(task.result()))
 
     async def _on_partial_result(self, result: TranscriptionResult) -> None:
         # T-12 telemetry, `meta.timings_ms` (contracts/websocket.md §3.6):
@@ -893,28 +961,21 @@ class DialogueSession:
                 await logger.aexception("automaton_tick_failed", session_id=self._session_id)
 
     async def _run_automaton_step(self, tick: _Tick, **extra: Any) -> None:
-        # dialogue.qnt's Formulating has NO "nothing happened this tick"
-        # no-op action -- unlike every other state (greetingPlays/idleTicks/
-        # speechPlays/closingPlays all handle a quiet tick explicitly),
-        # CANDIDATES_BY_STATE[Formulating] is exactly (draftAbandoned,
-        # draftReady, userStartsSpeaking), none of which guard on "nothing
-        # new happened" (nodes.py). Found while wiring T-09, not covered by
-        # any existing test (test_state_machine.py's Formulating cases only
-        # ever step with user_speaking=True or draft_ready=True): stepping
-        # unconditionally on every incoming audio chunk -- this module's
-        # general policy for every other state -- deadlocks
-        # (`DeadlockError`) the instant a quiet chunk arrives while
-        # Formulating. `AudioRing.append`/`VadGate.feed` already ran in
-        # `_on_audio_frame` regardless (FR-09: recording never stops); this
-        # only skips handing an uneventful tick to `DialogueMachine.step()`,
-        # which dialogue.qnt itself never expected to receive one for this
-        # state. See the delivery report.
-        if (
-            self._automaton.dialogue.agent is AgentState.FORMULATING
-            and not tick.user_speaking
-            and "draft_ready" not in extra
-        ):
-            return
+        # Formerly there was a workaround here: dialogue.qnt's Formulating
+        # had NO "nothing happened this tick" no-op action (unlike every
+        # other state -- greetingPlays/idleTicks/speechPlays/closingPlays
+        # all handle a quiet tick explicitly), so this method used to skip
+        # calling `DialogueMachine.step()` entirely on a quiet tick while
+        # Formulating, to avoid a `DeadlockError`. That was papering over a
+        # gap in the model's Python translation, not the model itself:
+        # dialogue.qnt already grew `formulatingWaits` for exactly this case
+        # (STATE_MACHINE.md's "Формируется черновик, ждём" self-loop), it
+        # was only missing from `backend/dialogue/nodes.py`'s registries
+        # (defect #2). Now that it's registered
+        # (`CANDIDATES_BY_STATE[Formulating]`), `DialogueMachine.step()` can
+        # be called unconditionally on every tick, exactly like every other
+        # state, and this method no longer needs to know anything about
+        # Formulating's internals at all.
 
         # idleHangup's dialogue.qnt effect needs `farewell_duration_ms` in
         # hand BEFORE the transition fires (it sets speech_left_ms from it
@@ -975,6 +1036,88 @@ class DialogueSession:
         """
         await self._run_automaton_step(_Tick(user_speaking=user_speaking, elapsed_ms=elapsed_ms, turn_ended=turn_ended), **extra)
 
+    # -- background-task supervision (defect #1) ---------------------------
+
+    def _fire_and_forget(self, coro: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
+        """`asyncio.create_task`, but the result is logged instead of
+        silently discarded if the coroutine raises -- for the handful of
+        call sites in this module that intentionally fire a coroutine
+        without awaiting it (background logging, a partial-transcription
+        callback continuing on its own task) and are not the primary
+        `_answer_task` this bug was originally filed against
+        (`_spawn_answer_task`), but share the exact same failure mode: a
+        bare `asyncio.create_task(...)` with nothing watching its result
+        turns any exception into an untraced "exception was never
+        retrieved" asyncio warning instead of a log line anyone can act on.
+        """
+        task = asyncio.create_task(coro)
+        task.add_done_callback(_log_fire_and_forget_failure)
+        return task
+
+    def _spawn_answer_task(self, coro: Coroutine[Any, Any, None]) -> asyncio.Task[None]:
+        """The ONLY way `self._answer_task` is ever created -- both call
+        sites in `_on_transition` go through this. Unlike `_pending_stt_task`
+        (`_on_partial_result_done`) and `_automaton_worker_task` (its own
+        per-tick try/except inside `_automaton_worker`), `_answer_task`
+        previously had neither a done-callback nor a wrapping try/except: an
+        exception escaping `_handle_turn_ended`/`_handle_interject_accepted`
+        (e.g. an httpx transport error from `decide()` that the narrower
+        except clause there also used to miss -- defect #1) was swallowed by
+        asyncio with nothing but an unretrieved-exception warning nobody
+        reads, leaving the automaton stuck in `Formulating` forever and the
+        user hearing nothing. `add_done_callback` guarantees this can no
+        longer happen silently, for ANY exception raised anywhere in the
+        task's body, not just the one this task's other fix already narrows.
+        """
+        task = asyncio.create_task(coro)
+        task.add_done_callback(self._on_answer_task_done)
+        self._answer_task = task
+        return task
+
+    def _on_answer_task_done(self, task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is None:
+            return
+        asyncio.create_task(self._recover_from_answer_task_crash(exc))
+
+    async def _recover_from_answer_task_crash(self, exc: BaseException) -> None:
+        """Last-resort net for whatever escapes `_spawn_answer_task`'s
+        wrapped coroutine. Always logs and counts the failure -- this is the
+        one guarantee this method exists to make, independent of whether
+        recovery below succeeds (the log call itself is safe against its own
+        failure -- `logger` is `_SafeLogger`-wrapped, module docstring). If
+        the crash happened before any audio for this draft went out (`agent
+        is FORMULATING`), `dialogue.qnt` has no action that gets the
+        automaton out of `Formulating` on its own here (`draftAbandoned`
+        needs the user to resume speaking; `draftReady` needs a draft that
+        was never produced) -- left alone, the session would hang exactly
+        like the bug this method fixes. Speaking a short apology drives the
+        SAME `draftReady` -> `Speaking` -> `speechCompletes` -> `Listening`
+        path any other reply takes (mirrors the existing "no scenario
+        matched" / `stream_answer` failure fallbacks in
+        `_handle_turn_ended`/`_speak_generated`), so the automaton always
+        gets back to a live state and the user hears SOMETHING instead of
+        silence.
+        """
+        await logger.aerror(
+            "answer_task_crashed",
+            session_id=self._session_id,
+            error_type=type(exc).__name__,
+            error=str(exc)[:300],
+            agent=self._automaton.dialogue.agent.value,
+        )
+        self._deps.metrics.record_error("answer_task_crashed")
+        if self._closed:
+            return
+        if self._automaton.dialogue.agent is AgentState.FORMULATING and not self._draft_text:
+            try:
+                await self._speak_fixed_text("Простите, у меня сейчас сбой. Повторите, пожалуйста, вопрос.")
+                await self._finish_draft_after_speaking(is_via_scenario=None)
+            except Exception:  # noqa: BLE001 -- recovery itself must not take the session down
+                await logger.aexception("answer_task_recovery_failed", session_id=self._session_id)
+
     # -- state-transition reactions --------------------------------------
 
     async def _on_transition(self, previous: AgentState, current: AgentState, event: AutomatonInput) -> None:
@@ -993,9 +1136,9 @@ class DialogueSession:
         if previous is AgentState.GREETING and current is AgentState.LISTENING:
             await self._on_greeting_ended(interrupted=event.user_speaking)
         elif previous is AgentState.LISTENING and current is AgentState.FORMULATING:
-            self._answer_task = asyncio.create_task(self._handle_turn_ended())
+            self._spawn_answer_task(self._handle_turn_ended())
         elif previous is AgentState.DECIDING_INTERJECT and current is AgentState.FORMULATING:
-            self._answer_task = asyncio.create_task(self._handle_interject_accepted())
+            self._spawn_answer_task(self._handle_interject_accepted())
         elif previous is AgentState.DECIDING_INTERJECT and current is AgentState.LISTENING:
             # FR-08 "listen further": no scenario runs for this outcome (the
             # automaton just returns to Listening), so `_run_scenario`'s own
@@ -1082,8 +1225,20 @@ class DialogueSession:
                     intent_query=decision.query or text,
                     transcript=text,
                 )
-            except (LlamaServerError, DecisionInFlightError) as exc:
+            except Exception as exc:  # noqa: BLE001 -- defect #1: decide() can fail with
+                # more than LlamaServerError/DecisionInFlightError. LlamaServerError is
+                # only raised on an HTTP status >= 400 (backend/llm/client.py) -- a
+                # transient httpx transport failure (ReadTimeout, ConnectError,
+                # PoolTimeout, ...) is neither of those two types and was previously
+                # invisible to this except clause, propagating out of
+                # `_handle_turn_ended` uncaught. With `_answer_task` (see
+                # `_spawn_answer_task`) that used to vanish silently -- no log line, no
+                # recovery -- leaving the automaton stuck in Formulating forever and the
+                # user hearing nothing. Any decide() failure now degrades this turn to
+                # the same honest "couldn't understand" scenario path RAG_QUERY already
+                # uses a few lines below, instead of being gated to two exception types.
                 await logger.aerror("intent_decision_failed", session_id=self._session_id, error=str(exc))
+                self._deps.metrics.record_error("intent_decision_failed")
                 ctx = ScenarioContext(error_type="server_error", transcript=text)
             scenario = self._deps.scenario_registry.match(AgentState.LISTENING, ctx)
 
@@ -1208,7 +1363,7 @@ class DialogueSession:
             max_turns=self._settings.dialogue.dialogue_history_max_turns
         )
         messages: list[Message] = build_answer_messages(
-            system_prompt=f"{_SYSTEM_PROMPT}\n\n{instruction.strip()}",
+            system_prompt=f"{self._deps.scenario_registry.system_prompt}\n\n{instruction.strip()}",
             rag_context=rag_context if use_rag else "",
             dialogue_history=history,
             transcript=self._last_partial_text,

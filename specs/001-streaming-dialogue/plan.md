@@ -404,7 +404,7 @@ backend/
 |---|---|
 | `AgentState.Greeting … Ended` | `dialogue.models.AgentState` (та же восьмёрка) |
 | `Draft.NoDraft/Building/Voicing/Dropped/Committed` | `dialogue.models.Draft` |
-| `action greetingPlays` и остальные 23 | ребро в `DialogueMachine`, имя метода = имя действия |
+| `action greetingPlays` и остальные 24 | ребро в `DialogueMachine`, имя метода = имя действия |
 | `turnLen / idleLen / overlapLen / speechLeft` | `DialogueState.timers`, в **миллисекундах** |
 | `TALK_LIMIT / IDLE_LIMIT / OVERLAP_LIMIT / TAIL_MIN` | `.env`: `DIALOGUE_INTERJECT_AFTER_S` / `_IDLE_HANGUP_S` / `_BARGE_IN_OVERLAP_S` / `_BARGE_IN_MIN_TAIL_S` |
 

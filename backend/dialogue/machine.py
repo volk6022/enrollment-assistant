@@ -8,7 +8,7 @@ How one `.qnt` step maps onto one LangGraph node visit
 LangGraph keeps following conditional edges within a single `ainvoke()`
 call until a route resolves to `END` (verified experimentally: two chained
 nodes without a stop condition hit `GraphRecursionError`, not "one hop and
-return"). But `dialogue.qnt`'s `step` action fires exactly ONE of its 24
+return"). But `dialogue.qnt`'s `step` action fires exactly ONE of its 25
 actions per model step -- so the destination node reached by a real
 transition must NOT itself re-evaluate its own candidates against the same
 external event, or a single VAD tick could fire two actions

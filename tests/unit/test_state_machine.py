@@ -3,9 +3,9 @@
 Structure mirrors tasks.md T-07's "Проверка" list plus the "Финальная
 проверка" §2 cross-check:
 
-* `test_exactly_24_actions_...` / `test_every_candidate_...` /
-  `test_every_action_has_a_declared_destination` -- the "24 действия
-  модели, 24 ребра графа, соответствие в обе стороны" table, built from
+* `test_actions_registry_matches_the_qnt_model_exactly` / `test_every_candidate_...` /
+  `test_every_action_has_a_declared_destination` -- the "N действий модели,
+  N рёбер графа, соответствие в обе стороны" table, built from
   `nodes.ACTIONS`/`CANDIDATES_BY_STATE`/`ACTION_DESTINATION` (the actual
   data `machine.py` uses to build `add_conditional_edges` path_maps) rather
   than by inspecting the compiled graph's `get_graph().edges`: LangGraph
@@ -16,6 +16,18 @@ Structure mirrors tasks.md T-07's "Проверка" list plus the "Финаль
   targets the same destination), so it is not a faithful source for this
   check. The registries are what's actually passed to `add_conditional_edges`,
   so they are the correct thing to assert against.
+
+  IMPORTANT (defect #3, delivery report): `QNT_STEP_ACTIONS` below is
+  parsed directly out of `specs/formal/dialogue.qnt`'s own
+  `action step = any { ... }` block -- it is NOT a second hand-typed copy
+  of the action list. A hand-kept copy is exactly what let
+  `formulatingWaits` silently drift out of sync: the model grew a 25th
+  action, `backend/dialogue/nodes.py` stayed at 24, and this test still
+  passed because it was only ever comparing the registry against its OWN
+  stale copy, never against the model it claims to guard. Parsing the
+  `.qnt` file directly means any future addition/removal of a model action
+  fails this test automatically -- nobody has to remember to update a
+  second list by hand.
 * `test_fr08_...` -- FR-08: declining to interject must not reset `turn_ms`.
 * `test_fr15_...` -- FR-15: overlap over a tail `<= TAIL_MIN` never calls
   the decision client.
@@ -36,7 +48,9 @@ not) invoked, which is the observable half of FR-17 ("классификатор
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pytest
 
@@ -51,38 +65,34 @@ from backend.dialogue.nodes import (
 )
 
 # ---------------------------------------------------------------------------
-# ground truth: the 24 action names in `specs/formal/dialogue.qnt`'s
-# `action step = any { ... }` block, in the order they're listed there.
+# ground truth: the action names in `specs/formal/dialogue.qnt`'s
+# `action step = any { ... }` block, parsed from the .qnt file itself (not
+# hand-copied -- see the module docstring's "IMPORTANT" paragraph, defect #3).
 # ---------------------------------------------------------------------------
 
-QNT_STEP_ACTIONS: frozenset[str] = frozenset(
-    {
-        "greetingPlays",
-        "greetingFinishes",
-        "userInterruptsGreeting",
-        "userStartsSpeaking",
-        "userKeepsTalking",
-        "userTurnEnds",
-        "reachTalkLimit",
-        "idleTicks",
-        "idleHangup",
-        "interjectDeclined",
-        "interjectAccepted",
-        "draftReady",
-        "draftAbandoned",
-        "speechPlays",
-        "speechCompletes",
-        "overlapGrows",
-        "overlapTriggersDecision",
-        "finishTailThroughOverlap",
-        "bargeInAccepted",
-        "bargeInDeclined",
-        "closingPlays",
-        "closingInterrupted",
-        "closingCompletes",
-        "ended",
-    }
-)
+_QNT_PATH = Path(__file__).resolve().parents[2] / "specs" / "formal" / "dialogue.qnt"
+
+_STEP_ACTION_RE = re.compile(r"action\s+step\s*=\s*any\s*\{(.*?)\}", re.DOTALL)
+
+
+def _load_qnt_step_actions(path: Path = _QNT_PATH) -> frozenset[str]:
+    """Extracts the action names listed in `action step = any { ... }` from
+    a `dialogue.qnt`-shaped file. Raises loudly (`AssertionError`) if the
+    block can't be found or parses to nothing -- a silent empty result here
+    would make every test below vacuously pass, which is worse than no
+    check at all.
+    """
+    text = path.read_text(encoding="utf-8")
+    match = _STEP_ACTION_RE.search(text)
+    assert match is not None, f"could not find 'action step = any {{ ... }}' in {path}"
+    names = frozenset(
+        chunk.strip() for chunk in match.group(1).split(",") if chunk.strip()
+    )
+    assert names, f"parsed zero action names out of {path}'s 'action step' block"
+    return names
+
+
+QNT_STEP_ACTIONS: frozenset[str] = _load_qnt_step_actions()
 
 # `dialogue.qnt`'s STATE_MACHINE.md diagram, expanded into (source, action,
 # dest) triples -- the graph edges `machine.py._build_graph()` wires via
@@ -107,6 +117,7 @@ EXPECTED_EDGES: frozenset[tuple[str, str, str]] = frozenset(
         ("DecidingInterject", "userStartsSpeaking", "DecidingInterject"),
         ("Formulating", "draftAbandoned", "Listening"),
         ("Formulating", "draftReady", "Speaking"),
+        ("Formulating", "formulatingWaits", "Formulating"),
         ("Formulating", "userStartsSpeaking", "Formulating"),
         ("Speaking", "overlapTriggersDecision", "DecidingBargeIn"),
         ("Speaking", "finishTailThroughOverlap", "Speaking"),
@@ -140,9 +151,14 @@ def _actual_edges() -> set[tuple[str, str, str]]:
     return edges
 
 
-def test_exactly_24_actions_match_the_qnt_model() -> None:
+def test_actions_registry_matches_the_qnt_model_exactly() -> None:
+    """`nodes.ACTIONS` and `specs/formal/dialogue.qnt`'s `action step`
+    block must name exactly the same set of actions -- no fixed count is
+    asserted here on purpose (defect #3): a literal like `== 25` is itself
+    a number someone has to remember to bump, the same failure mode this
+    rewrite exists to eliminate. Set equality against the freshly-parsed
+    `.qnt` file is the whole guarantee."""
     assert set(ACTIONS) == QNT_STEP_ACTIONS
-    assert len(ACTIONS) == 24
 
 
 def test_every_qnt_action_is_a_candidate_somewhere() -> None:
@@ -155,7 +171,7 @@ def test_every_candidate_is_a_known_qnt_action() -> None:
     """No edge without an action."""
     for agent, names in CANDIDATES_BY_STATE.items():
         for name in names:
-            assert name in ACTIONS, f"{agent}: {name!r} is not one of the 24 dialogue.qnt actions"
+            assert name in ACTIONS, f"{agent}: {name!r} is not one of the dialogue.qnt actions"
 
 
 def test_action_destination_is_declared_for_every_action() -> None:
@@ -355,6 +371,37 @@ async def test_overlap_over_a_long_tail_does_trigger_a_decision() -> None:
     assert automaton.dialogue.agent is AgentState.SPEAKING, "declined -- agent keeps talking"
     assert automaton.dialogue.timers.overlap_ms == 0
     assert len(client.calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# defect #2: formulatingWaits -- a quiet tick while Formulating (no speech,
+# no draft_ready) must self-loop, not deadlock. Before this action was
+# registered, `backend/ws/session.py` had to skip calling `step()` entirely
+# on such a tick to avoid a `DeadlockError` -- see that module's delivery
+# report and its now-removed workaround in `_run_automaton_step`.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_formulating_waits_on_a_quiet_tick_without_deadlocking() -> None:
+    client = FakeDecisionClient()
+    machine = _machine(client)
+    automaton = AutomatonState(
+        dialogue=DialogueState(
+            agent=AgentState.FORMULATING,
+            draft=Draft.BUILDING,
+            timers=DialogueTimers(idle_ms=500, overlap_ms=500),
+        ),
+    )
+    # Neither draftAbandoned's guard (needs continuing speech) nor
+    # draftReady's (needs `draft_ready=True`) fires here -- only
+    # formulatingWaits can, and previously nothing did.
+    automaton = await machine.step(automaton, AutomatonInput(user_speaking=False, elapsed_ms=100))
+    assert automaton.dialogue.agent is AgentState.FORMULATING
+    assert automaton.dialogue.draft is Draft.BUILDING
+    assert automaton.dialogue.timers.idle_ms == 0
+    assert automaton.dialogue.timers.overlap_ms == 0
+    assert client.calls == []
 
 
 # ---------------------------------------------------------------------------

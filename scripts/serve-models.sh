@@ -173,12 +173,30 @@ LLM_PID=$(start_server llm "$LLM_PORT" "$LLM_PATH" \
     -ngl 99 -c "$CTX_SIZE" -np "$N_PARALLEL" -fa on --jinja --no-webui)
 echo "llm $LLM_PID" >> "$PID_FILE"
 
+# -b/-ub: llama-server defaults (2048/512) 500 on a single (query, doc) pair once it
+# exceeds the physical batch size (-ub) -- RAG_FUSED_TOP=50 candidates over the real
+# 5856-chunk index (backend/rag/artifacts/chunks.jsonl) include table-heavy chunks
+# that tokenize far denser than their character count suggests: chunk idx 790 (a
+# medical BMI/height/weight table, source "Постановление Правительства РФ от
+# 04_07_2013 N 565") is 1200 chars but 687 tokens on the reranker's tokenizer --
+# combined with a realistic query it measured 826 tokens live, well past the default
+# -ub 512 ("input (826 tokens) is too large to process. increase the physical batch
+# size (current batch size: 512)"), and the `except Exception` in
+# backend/ws/session.py's RAG_QUERY handling silently turns that into a fake
+# "Простите, у меня сейчас сбой" instead of surfacing the failure. -ub 2048 (raised
+# to match -b, since -b must be >= -ub) covers that with room to spare -- verified
+# live against both the measured worst case (826 tokens) and an extreme one (the
+# TRANSCRIPT_BUFFER_CHARS=5000 raw-transcript fallback query from
+# dialogue/scenarios.yaml's "query (=intent.query | transcript)" paired with the same
+# pathological chunk, ~1775 tokens, RAG_FUSED_TOP=50 candidates) -- both HTTP 200.
+# VRAM cost: all three servers together measured 5786/8192 MiB at these settings,
+# ~2.4 GB of headroom left.
 EMB_PID=$(start_server embedding "$EMB_PORT" "$EMB_PATH" \
-    --embedding -ngl 99 --no-cache-prompt -cram 0 -ctxcp 0 -cpent -1)
+    --embedding -ngl 99 --no-cache-prompt -cram 0 -ctxcp 0 -cpent -1 -b 2048 -ub 2048)
 echo "embedding $EMB_PID" >> "$PID_FILE"
 
 RER_PID=$(start_server reranker "$RER_PORT" "$RER_PATH" \
-    --reranking -ngl 99 --no-cache-prompt -cram 0 -ctxcp 0 -cpent -1)
+    --reranking -ngl 99 --no-cache-prompt -cram 0 -ctxcp 0 -cpent -1 -b 2048 -ub 2048)
 echo "reranker $RER_PID" >> "$PID_FILE"
 
 # ─── Ждём /health каждого ────────────────────────────────────────────────────

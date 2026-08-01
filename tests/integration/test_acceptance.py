@@ -316,7 +316,18 @@ async def test_a11_out_of_scope_question_gets_honest_refusal(session_deps) -> No
 
         done = await ws.wait_for_json(lambda m: m["type"] == "answer.done", timeout_s=30)
         text_lower = done["text"].lower()
-        print(f"\nA-11 answer: {done['text']!r}")
+        # Diagnostic only -- must never be able to fail the test itself. The
+        # answer is Russian, and this suite's own Windows console codepage
+        # (cp1252) cannot encode Cyrillic: a bare `print()` here raised
+        # `UnicodeEncodeError` from INSIDE the print call, which pytest
+        # reports as a test failure indistinguishable from a real one (this
+        # is exactly the class of bug backend/ws/session.py's `_SafeLogger`
+        # exists to prevent in the product's own logging -- same failure
+        # mode, this time in a test's `print()` instead of `logger.ainfo()`).
+        try:
+            print(f"\nA-11 answer: {done['text']!r}")
+        except UnicodeEncodeError:
+            print(f"\nA-11 answer: <{len(done['text'])} chars, non-ASCII, console can't render>")
         assert any(
             marker in text_lower for marker in ("нет точной информац", "не наш", "приёмн")
         ), f"expected an honest not-found + a route to the admissions office, got: {done['text']!r}"

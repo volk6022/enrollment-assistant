@@ -34,6 +34,7 @@ experiments-rag-params/runs/
 experiment-tts/grid_audio/
 rag/artifacts/
 backend/rag/artifacts/
+scripts/logs/
 .voice-cache/
 *.log
 

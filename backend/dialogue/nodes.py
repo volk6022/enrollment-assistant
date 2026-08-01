@@ -1,6 +1,9 @@
-"""The 24 `dialogue.qnt` actions, translated to Python 1:1 (T-07; tasks.md,
+"""The 25 `dialogue.qnt` actions, translated to Python 1:1 (T-07; tasks.md,
 plan.md §9 "Соответствие модели и кода": "action greetingPlays и остальные
-23 -> ребро в DialogueMachine, имя метода = имя действия").
+23 -> ребро в DialogueMachine, имя метода = имя действия" -- plan.md's count
+predates `formulatingWaits`, added to the model after T-09's implementation
+found `Formulating` had no self-loop for "still generating, nothing
+happened" (`dialogue.qnt`'s own comment on the action); 24 -> 25 total).
 
 Every function below is named EXACTLY like its `action` in
 `specs/formal/dialogue.qnt` (camelCase, not `snake_case` -- deliberate
@@ -373,6 +376,24 @@ def draftAbandoned(state: DialogueState, ctx: StepContext) -> DialogueState | No
     )
 
 
+def formulatingWaits(state: DialogueState, ctx: StepContext) -> DialogueState | None:
+    """`Formulating`'s "still generating, nothing happened" self-loop
+    (defect #2). Added to `dialogue.qnt` after T-09's implementation found
+    the state had no legal action for a quiet tick -- every other state has
+    one (`greetingPlays`, `idleTicks`, `userKeepsTalking`, `speechPlays`,
+    `closingPlays`), `Formulating` originally only had `draftReady` and
+    `draftAbandoned`, both of which end the state. Real generation takes
+    real time and an orchestration that steps the machine on every incoming
+    audio chunk (T-09's `backend/ws/session.py`) needs somewhere to land
+    when neither of those guards fires yet. Mirrors `dialogue.qnt`'s own
+    effect exactly: only `idle_ms`/`overlap_ms` reset, `turn_ms` and
+    `speech_left_ms` are left untouched.
+    """
+    if not (state.agent is _FORMULATING and state.draft is _BUILDING):
+        return None
+    return replace(state, timers=replace(state.timers, idle_ms=0, overlap_ms=0))
+
+
 # ---------------------------------------------------------------------------
 # speaking
 # ---------------------------------------------------------------------------
@@ -515,8 +536,10 @@ def ended(state: DialogueState, ctx: StepContext) -> DialogueState | None:
 # ---------------------------------------------------------------------------
 
 #: Every `dialogue.qnt` `step` action, in the exact order the model lists
-#: them (`action step = any { ... }`) -- 24 entries, verified by
-#: `test_state_machine.py::test_exactly_24_actions_match_the_qnt_model`.
+#: them (`action step = any { ... }`) -- 25 entries, verified by
+#: `test_state_machine.py`'s registry-vs-`.qnt` cross-check (parses
+#: `specs/formal/dialogue.qnt` directly rather than comparing against a
+#: second hand-kept copy -- see that test module's docstring, defect #3).
 ACTIONS: dict[str, ActionFn] = {
     "greetingPlays": greetingPlays,
     "greetingFinishes": greetingFinishes,
@@ -531,6 +554,7 @@ ACTIONS: dict[str, ActionFn] = {
     "interjectAccepted": interjectAccepted,
     "draftReady": draftReady,
     "draftAbandoned": draftAbandoned,
+    "formulatingWaits": formulatingWaits,
     "speechPlays": speechPlays,
     "speechCompletes": speechCompletes,
     "overlapGrows": overlapGrows,
@@ -563,6 +587,7 @@ ACTION_DESTINATION: dict[str, AgentState | None] = {
     "interjectAccepted": _FORMULATING,
     "draftReady": _SPEAKING,
     "draftAbandoned": _LISTENING,
+    "formulatingWaits": _FORMULATING,
     "speechPlays": _SPEAKING,
     "speechCompletes": _LISTENING,
     "overlapGrows": _SPEAKING,
@@ -592,7 +617,7 @@ CANDIDATES_BY_STATE: dict[AgentState, tuple[str, ...]] = {
         "userStartsSpeaking",
     ),
     _DECIDING_INTERJECT: ("interjectDeclined", "interjectAccepted", "userStartsSpeaking"),
-    _FORMULATING: ("draftAbandoned", "draftReady", "userStartsSpeaking"),
+    _FORMULATING: ("draftAbandoned", "draftReady", "formulatingWaits", "userStartsSpeaking"),
     _SPEAKING: (
         "overlapTriggersDecision",
         "finishTailThroughOverlap",
@@ -631,6 +656,7 @@ __all__ = [
     "interjectAccepted",
     "draftReady",
     "draftAbandoned",
+    "formulatingWaits",
     "speechPlays",
     "speechCompletes",
     "overlapGrows",
