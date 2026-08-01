@@ -41,3 +41,6 @@ rag/artifacts/
 Thumbs.db
 .idea/
 .vscode/
+
+# Apalache/Quint verification scratch
+specs/formal/_apalache-out/
