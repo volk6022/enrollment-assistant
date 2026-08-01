@@ -1,0 +1,42 @@
+{
+  "raw_completion_plain": {
+    "ttft_s": 0.774,
+    "first_speakable_s": null,
+    "total_s": 2.9,
+    "has_think_tag": true,
+    "chars": 840,
+    "text": "<think>\nThinking Process:\n\n1.  **Analyze the Request:**\n    *   **Role:** Reception assistant of an institute (помощница приёмной комиссии института).\n    *   **Tone/Style:** Brief, 1-3 sentences, only the essence (кратко, 1–3 предложения, только по существу).\n    *   **Context:** Multiple documents (Document 1 to Document 20) are provided. All documents contain identical text: \"Пункт X. Для посту"
+  },
+  "chat_default": {
+    "ttft_s": 0.436,
+    "first_speakable_s": null,
+    "total_s": 2.785,
+    "has_think_tag": false,
+    "chars": 0,
+    "text": ""
+  },
+  "chat_enable_thinking_off": {
+    "ttft_s": 0.077,
+    "first_speakable_s": null,
+    "total_s": 2.432,
+    "has_think_tag": false,
+    "chars": 0,
+    "text": ""
+  },
+  "chat_nothink_tag": {
+    "ttft_s": 0.474,
+    "first_speakable_s": null,
+    "total_s": 2.81,
+    "has_think_tag": false,
+    "chars": 0,
+    "text": ""
+  },
+  "chat_prefill_closed_think": {
+    "ttft_s": 0.075,
+    "first_speakable_s": 0.075,
+    "total_s": 0.454,
+    "has_think_tag": false,
+    "chars": 163,
+    "text": "Для поступления нужны: заявление, документ об образовании, медицинское заключение и результаты вступительных испытаний. Документы принимаются с 20 июня по 31 июля."
+  }
+}

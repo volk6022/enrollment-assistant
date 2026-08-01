@@ -1,0 +1,138 @@
+{
+  "candidate_chars_mean": 950,
+  "reps": 3,
+  "embed": {
+    "cuda/fp16 (prod)": {
+      "q1": {
+        "ms_mean": 25.8,
+        "ms_min": 25.7,
+        "ms_max": 25.8
+      },
+      "q2_conversational": {
+        "ms_mean": 27.7,
+        "ms_min": 27.6,
+        "ms_max": 27.9
+      },
+      "batch32": {
+        "ms_mean": 255.5,
+        "ms_min": 255.0,
+        "ms_max": 255.7
+      }
+    },
+    "cpu/fp32, threads=default": {
+      "q1": {
+        "ms_mean": 238.8,
+        "ms_min": 231.9,
+        "ms_max": 243.2
+      },
+      "q2_conversational": {
+        "ms_mean": 300.7,
+        "ms_min": 290.5,
+        "ms_max": 312.9
+      },
+      "batch32": {
+        "ms_mean": 37925.6,
+        "ms_min": 37679.1,
+        "ms_max": 38089.9
+      },
+      "gil_q1": {
+        "tight_max_ms": 36.065,
+        "tight_p99_ms": 0.012,
+        "timer_max_ms": 43.658,
+        "verdict": "releases GIL"
+      }
+    },
+    "cpu/fp32, threads=12": {
+      "q1": {
+        "ms_mean": 222.6,
+        "ms_min": 217.6,
+        "ms_max": 225.7
+      },
+      "q2_conversational": {
+        "ms_mean": 336.1,
+        "ms_min": 329.2,
+        "ms_max": 342.7
+      },
+      "batch32": {
+        "ms_mean": 30987.0,
+        "ms_min": 30813.4,
+        "ms_max": 31074.7
+      },
+      "gil_q1": {
+        "tight_max_ms": 25.895,
+        "tight_p99_ms": 0.018,
+        "timer_max_ms": 31.28,
+        "verdict": "releases GIL"
+      }
+    }
+  },
+  "rerank": {
+    "cuda/fp16 (prod)": {
+      "pairs50_prod": {
+        "ms_mean": 289.8,
+        "ms_min": 289.4,
+        "ms_max": 290.6
+      },
+      "pairs30_ref": {
+        "ms_mean": 184.9,
+        "ms_min": 184.4,
+        "ms_max": 185.3
+      },
+      "pairs10": {
+        "ms_mean": 77.0,
+        "ms_min": 76.6,
+        "ms_max": 77.4
+      }
+    },
+    "cpu/fp32, threads=default": {
+      "pairs50_prod": {
+        "ms_mean": 35239.7,
+        "ms_min": 34755.1,
+        "ms_max": 35829.1
+      },
+      "pairs30_ref": {
+        "ms_mean": 22655.8,
+        "ms_min": 22514.6,
+        "ms_max": 22758.2
+      },
+      "pairs10": {
+        "ms_mean": 7828.7,
+        "ms_min": 7751.2,
+        "ms_max": 7958.8
+      },
+      "gil_pairs50": {
+        "tight_max_ms": 100.083,
+        "tight_p99_ms": 0.013,
+        "timer_max_ms": 101.21,
+        "verdict": "HOLDS GIL"
+      }
+    },
+    "cpu/fp32, threads=12": {
+      "pairs50_prod": {
+        "ms_mean": 34417.1,
+        "ms_min": 34250.7,
+        "ms_max": 34654.5
+      },
+      "pairs30_ref": {
+        "ms_mean": 22443.4,
+        "ms_min": 22388.0,
+        "ms_max": 22495.3
+      },
+      "pairs10": {
+        "ms_mean": 7597.3,
+        "ms_min": 7551.4,
+        "ms_max": 7634.7
+      },
+      "gil_pairs50": {
+        "tight_max_ms": 49.993,
+        "tight_p99_ms": 0.012,
+        "timer_max_ms": 62.697,
+        "verdict": "HOLDS GIL"
+      }
+    },
+    "cpu/int8-dynamic, threads=12": {
+      "error": "AttributeError: "
+    }
+  },
+  "torch_default_threads": 6
+}

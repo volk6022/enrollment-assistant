@@ -1,0 +1,293 @@
+{
+  "load": {
+    "whisper_load_s": 51.84,
+    "silero_load_s": 3.57
+  },
+  "vram_after_load_mb": 5545.0,
+  "part_a": {
+    "stt solo": {
+      "wall_s": 4.03,
+      "resources": {
+        "vram_mb_min": 5545.0,
+        "vram_mb_max": 5673.0,
+        "rss_mb_min": 1316.3,
+        "rss_mb_max": 1353.6,
+        "n_samples": 8
+      },
+      "tight_max_ms": 1018.891,
+      "tight_p99_ms": 0.008,
+      "timer_max_ms": 1020.439,
+      "stt_s_mean": 1.007,
+      "stt_s_max": 3.075,
+      "slowdown_vs_solo": {
+        "stt": 1.0
+      }
+    },
+    "tts solo": {
+      "wall_s": 1.763,
+      "resources": {
+        "vram_mb_min": 5545.0,
+        "vram_mb_max": 5545.0,
+        "rss_mb_min": 1331.8,
+        "rss_mb_max": 1360.6,
+        "n_samples": 6
+      },
+      "tight_max_ms": 1.865,
+      "tight_p99_ms": 0.013,
+      "timer_max_ms": 31.307,
+      "tts_s_mean": 0.441,
+      "tts_s_max": 0.498,
+      "slowdown_vs_solo": {
+        "tts": 1.0
+      }
+    },
+    "llm solo": {
+      "wall_s": 1.787,
+      "resources": {
+        "vram_mb_min": 5545.0,
+        "vram_mb_max": 5551.0,
+        "rss_mb_min": 1359.8,
+        "rss_mb_max": 1362.4,
+        "n_samples": 6
+      },
+      "tight_max_ms": 4.636,
+      "tight_p99_ms": 0.008,
+      "timer_max_ms": 27.158,
+      "llm_s_mean": 0.447,
+      "llm_s_max": 0.924,
+      "slowdown_vs_solo": {
+        "llm": 1.0
+      }
+    },
+    "stt+tts": {
+      "wall_s": 2.213,
+      "resources": {
+        "vram_mb_min": 5551.0,
+        "vram_mb_max": 5679.0,
+        "rss_mb_min": 1355.0,
+        "rss_mb_max": 1370.8,
+        "n_samples": 8
+      },
+      "tight_max_ms": 1.695,
+      "tight_p99_ms": 0.01,
+      "timer_max_ms": 44.0,
+      "stt_s_mean": 0.342,
+      "stt_s_max": 0.349,
+      "tts_s_mean": 0.553,
+      "tts_s_max": 0.635,
+      "slowdown_vs_solo": {
+        "stt": 0.34,
+        "tts": 1.25
+      }
+    },
+    "stt+llm": {
+      "wall_s": 2.448,
+      "resources": {
+        "vram_mb_min": 5551.0,
+        "vram_mb_max": 5679.0,
+        "rss_mb_min": 1278.6,
+        "rss_mb_max": 1371.1,
+        "n_samples": 9
+      },
+      "tight_max_ms": 34.493,
+      "tight_p99_ms": 0.009,
+      "timer_max_ms": 38.699,
+      "stt_s_mean": 0.612,
+      "stt_s_max": 0.964,
+      "llm_s_mean": 0.429,
+      "llm_s_max": 0.608,
+      "slowdown_vs_solo": {
+        "stt": 0.61,
+        "llm": 0.96
+      }
+    },
+    "tts+llm": {
+      "wall_s": 1.819,
+      "resources": {
+        "vram_mb_min": 5551.0,
+        "vram_mb_max": 5551.0,
+        "rss_mb_min": 1257.2,
+        "rss_mb_max": 1283.8,
+        "n_samples": 6
+      },
+      "tight_max_ms": 3.254,
+      "tight_p99_ms": 0.009,
+      "timer_max_ms": 32.148,
+      "tts_s_mean": 0.455,
+      "tts_s_max": 0.475,
+      "llm_s_mean": 0.294,
+      "llm_s_max": 0.296,
+      "slowdown_vs_solo": {
+        "tts": 1.03,
+        "llm": 0.66
+      }
+    },
+    "stt+tts+llm (ALL)": {
+      "wall_s": 2.128,
+      "resources": {
+        "vram_mb_min": 5551.0,
+        "vram_mb_max": 5679.0,
+        "rss_mb_min": 1277.2,
+        "rss_mb_max": 1293.2,
+        "n_samples": 7
+      },
+      "tight_max_ms": 4.422,
+      "tight_p99_ms": 0.01,
+      "timer_max_ms": 31.988,
+      "stt_s_mean": 0.532,
+      "stt_s_max": 0.75,
+      "tts_s_mean": 0.471,
+      "tts_s_max": 0.497,
+      "llm_s_mean": 0.421,
+      "llm_s_max": 0.485,
+      "slowdown_vs_solo": {
+        "stt": 0.53,
+        "tts": 1.07,
+        "llm": 0.94
+      }
+    }
+  },
+  "part_b": {
+    "timeline": [
+      {
+        "t": 0.0,
+        "event": "mic_start"
+      },
+      {
+        "t": 0.764,
+        "event": "partial_stt",
+        "ms": 265,
+        "audio_s": 0.64,
+        "text": "Документы."
+      },
+      {
+        "t": 1.165,
+        "event": "prefill_update",
+        "ms": 401
+      },
+      {
+        "t": 1.951,
+        "event": "partial_stt",
+        "ms": 312,
+        "audio_s": 2.1,
+        "text": "Документы принимаются до 31 января."
+      },
+      {
+        "t": 2.017,
+        "event": "prefill_update",
+        "ms": 67
+      },
+      {
+        "t": 2.086,
+        "event": "speech_end_real"
+      },
+      {
+        "t": 2.568,
+        "event": "silence_detected"
+      },
+      {
+        "t": 2.818,
+        "event": "partial_stt",
+        "ms": 310,
+        "audio_s": 2.65,
+        "text": "Документы принимаются до 31 июля."
+      },
+      {
+        "t": 2.882,
+        "event": "prefill_update",
+        "ms": 64
+      },
+      {
+        "t": 3.194,
+        "event": "final_stt",
+        "ms": 311,
+        "text": "Документы принимаются до 31 июля."
+      },
+      {
+        "t": 3.445,
+        "event": "llm_first_token",
+        "ms": 251
+      },
+      {
+        "t": 3.458,
+        "event": "llm_first_token",
+        "ms": 264
+      },
+      {
+        "t": 3.471,
+        "event": "llm_first_token",
+        "ms": 277
+      },
+      {
+        "t": 3.481,
+        "event": "llm_first_token",
+        "ms": 288
+      },
+      {
+        "t": 3.494,
+        "event": "llm_first_token",
+        "ms": 300
+      },
+      {
+        "t": 3.505,
+        "event": "llm_first_token",
+        "ms": 311
+      },
+      {
+        "t": 3.515,
+        "event": "llm_first_token",
+        "ms": 321
+      },
+      {
+        "t": 3.526,
+        "event": "llm_first_token",
+        "ms": 332
+      },
+      {
+        "t": 3.536,
+        "event": "llm_first_token",
+        "ms": 342
+      },
+      {
+        "t": 3.547,
+        "event": "llm_first_token",
+        "ms": 353
+      },
+      {
+        "t": 3.557,
+        "event": "llm_first_token",
+        "ms": 363
+      },
+      {
+        "t": 3.759,
+        "event": "FIRST_AUDIO_READY",
+        "since_silence_ms": 877
+      },
+      {
+        "t": 3.759,
+        "event": "tts_sentence",
+        "n": 1,
+        "ms": 202,
+        "audio_s": 2.71,
+        "text": "Да, документы принимаются до 31 июля."
+      },
+      {
+        "t": 3.761,
+        "event": "answer_complete",
+        "ms": 567
+      }
+    ],
+    "n_partials": 3,
+    "final_transcript": "Документы принимаются до 31 июля.",
+    "latency_silence_to_first_audio_ms": 877,
+    "tight_max_ms": 2.349,
+    "timer_max_ms": 32.986,
+    "resources": {
+      "vram_mb_min": 5551.0,
+      "vram_mb_max": 5679.0,
+      "rss_mb_min": 1280.5,
+      "rss_mb_max": 1297.2,
+      "n_samples": 13
+    }
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "label": "A schema only | явное перебивание",
+    "wall_s": 3.601,
+    "reasoning_chars": 1418,
+    "content": "",
+    "valid_json": false,
+    "json_error": "Expecting value: line 1 column 1 (char 0)",
+    "schema_ok": false,
+    "parsed": null
+  },
+  {
+    "label": "B schema + nothink | явное перебивание",
+    "error": "HTTP 400: {\"error\":{\"code\":400,\"message\":\"Failed to initialize samplers: Unexpected empty grammar stack after accepting piece: <think> (248068)\",\"type\":\"invalid_request_error\"}}"
+  },
+  {
+    "label": "C json_object + nothink | явное перебивание",
+    "wall_s": 2.642,
+    "reasoning_chars": 0,
+    "content": "<think>\n\n</think>\n\n## Решение\n\n**Нет, абитуриент не требует прервать ответ.**\n\n### Обоснование:\n\n1. **Смысл фразы**: Фраза «нет, подождите, я про другое хотел спросить» означает, что абитуриент:\n   - ",
+    "valid_json": false,
+    "json_error": "Expecting value: line 1 column 1 (char 0)",
+    "schema_ok": false,
+    "parsed": null
+  },
+  {
+    "label": "A schema only | поддакивание",
+    "wall_s": 3.322,
+    "reasoning_chars": 1399,
+    "content": "",
+    "valid_json": false,
+    "json_error": "Expecting value: line 1 column 1 (char 0)",
+    "schema_ok": false,
+    "parsed": null
+  },
+  {
+    "label": "B schema + nothink | поддакивание",
+    "error": "HTTP 400: {\"error\":{\"code\":400,\"message\":\"Failed to initialize samplers: Unexpected empty grammar stack after accepting piece: <think> (248068)\",\"type\":\"invalid_request_error\"}}"
+  },
+  {
+    "label": "C json_object + nothink | поддакивание",
+    "wall_s": 2.874,
+    "reasoning_chars": 0,
+    "content": "<think>\n\n</think>\n\n## Решение\n\n**Нет, абитуриент не требует прервать ответ.**\n\n### Обоснование:\n\n1. **Смысловое содержание фразы**\n   - \"Ага... понятно... да\" — это выражение **понимания и согласия**,",
+    "valid_json": false,
+    "json_error": "Expecting value: line 1 column 1 (char 0)",
+    "schema_ok": false,
+    "parsed": null
+  }
+]

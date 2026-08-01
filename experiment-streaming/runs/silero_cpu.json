@@ -1,0 +1,43 @@
+{
+  "silero_cpu": {
+    "meta": {
+      "version": "v5_5_ru",
+      "speaker": "baya",
+      "sample_rate": 48000,
+      "device": "cpu",
+      "torch_threads": 1,
+      "audio_sec": 8.12,
+      "chars": 119
+    },
+    "reps": 3,
+    "threads": 1,
+    "wall_sec": 1.864,
+    "call_sec_mean": 0.621,
+    "call_sec_max": 0.675,
+    "probe_tight": {
+      "ticks": 393134,
+      "gap_ms_p50": 0.005,
+      "gap_ms_p95": 0.008,
+      "gap_ms_p99": 0.008,
+      "gap_ms_max": 8.232,
+      "blocked_ms_total": 1996.961,
+      "ticks_over_50ms": 0
+    },
+    "probe_timer": {
+      "ticks": 129,
+      "gap_ms_p50": 15.633,
+      "gap_ms_p95": 23.643,
+      "gap_ms_p99": 28.165,
+      "gap_ms_max": 28.326,
+      "blocked_ms_total": 58.106,
+      "ticks_over_50ms": 0
+    },
+    "solo_sec_all": [
+      0.536,
+      0.536,
+      0.531
+    ],
+    "solo_sec_mean": 0.534,
+    "probe_slowdown_x": 1.16
+  }
+}

@@ -1,0 +1,64 @@
+[
+  {
+    "label": "A sampler only",
+    "stt_calls_s": [],
+    "tight_max_ms": 8.946,
+    "tight_p99_ms": 0.008,
+    "timer_max_ms": 31.341,
+    "sampler": {
+      "vram_mb_min": 5553.0,
+      "vram_mb_max": 5553.0,
+      "rss_mb_min": 856.8,
+      "rss_mb_max": 881.4,
+      "n_samples": 10
+    }
+  },
+  {
+    "label": "B stt only (fresh thread)",
+    "stt_calls_s": [
+      0.719,
+      0.317,
+      0.324
+    ],
+    "tight_max_ms": 128.07,
+    "tight_p99_ms": 0.008,
+    "timer_max_ms": 133.193,
+    "sampler": {}
+  },
+  {
+    "label": "C stt + sampler (fresh thread)",
+    "stt_calls_s": [
+      0.321,
+      0.316,
+      0.32
+    ],
+    "tight_max_ms": 5.416,
+    "tight_p99_ms": 0.008,
+    "timer_max_ms": 46.474,
+    "sampler": {
+      "vram_mb_min": 5553.0,
+      "vram_mb_max": 5681.0,
+      "rss_mb_min": 893.5,
+      "rss_mb_max": 896.5,
+      "n_samples": 4
+    }
+  },
+  {
+    "label": "D stt + sampler (same thread)",
+    "stt_calls_s": [
+      0.346,
+      0.334,
+      0.319
+    ],
+    "tight_max_ms": 1.62,
+    "tight_p99_ms": 0.008,
+    "timer_max_ms": 37.901,
+    "sampler": {
+      "vram_mb_min": 5585.0,
+      "vram_mb_max": 5681.0,
+      "rss_mb_min": 896.1,
+      "rss_mb_max": 898.3,
+      "n_samples": 4
+    }
+  }
+]

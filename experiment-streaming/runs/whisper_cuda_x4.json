@@ -1,0 +1,41 @@
+{
+  "whisper_cuda": {
+    "meta": {
+      "model": "large-v3-turbo",
+      "device": "cuda",
+      "compute_type": "int8",
+      "cpu_threads": "default",
+      "audio_sec": 2.65,
+      "warm_transcript": "Документы принимаются до 31 июля."
+    },
+    "reps": 4,
+    "threads": 4,
+    "wall_sec": 1.202,
+    "call_sec_mean": 1.019,
+    "call_sec_max": 1.2,
+    "probe_tight": {
+      "ticks": 258823,
+      "gap_ms_p50": 0.005,
+      "gap_ms_p95": 0.006,
+      "gap_ms_p99": 0.008,
+      "gap_ms_max": 8.878,
+      "blocked_ms_total": 1335.676,
+      "ticks_over_50ms": 0
+    },
+    "probe_timer": {
+      "ticks": 87,
+      "gap_ms_p50": 15.631,
+      "gap_ms_p95": 25.165,
+      "gap_ms_p99": 41.355,
+      "gap_ms_max": 41.355,
+      "blocked_ms_total": 68.066,
+      "ticks_over_50ms": 0
+    },
+    "solo_sec_all": [
+      0.303,
+      0.301
+    ],
+    "solo_sec_mean": 0.302,
+    "probe_slowdown_x": 3.37
+  }
+}

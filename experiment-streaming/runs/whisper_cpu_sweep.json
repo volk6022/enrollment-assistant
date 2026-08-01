@@ -1,0 +1,94 @@
+{
+  "audio_sec": 2.65,
+  "reps": 2,
+  "grid": [
+    {
+      "label": "turbo/int8/th=0(default)/beam5",
+      "model": "large-v3-turbo",
+      "compute_type": "int8",
+      "cpu_threads": "default",
+      "beam_size": 5,
+      "load_s": 4.19,
+      "infer_s": 23.412,
+      "rtf": 8.835,
+      "transcript": "Документы принимаются до 31 июля."
+    },
+    {
+      "label": "turbo/int8/th=6/beam5",
+      "model": "large-v3-turbo",
+      "compute_type": "int8",
+      "cpu_threads": 6,
+      "beam_size": 5,
+      "load_s": 3.97,
+      "infer_s": 18.987,
+      "rtf": 7.165,
+      "transcript": "Документы принимаются до 31 июля."
+    },
+    {
+      "label": "turbo/int8/th=12/beam5",
+      "model": "large-v3-turbo",
+      "compute_type": "int8",
+      "cpu_threads": 12,
+      "beam_size": 5,
+      "load_s": 4.29,
+      "infer_s": 15.184,
+      "rtf": 5.73,
+      "transcript": "Документы принимаются до 31 июля."
+    },
+    {
+      "label": "turbo/int8/th=12/beam1",
+      "model": "large-v3-turbo",
+      "compute_type": "int8",
+      "cpu_threads": 12,
+      "beam_size": 1,
+      "load_s": 4.29,
+      "infer_s": 15.172,
+      "rtf": 5.725,
+      "transcript": "Документы принимаются до 31 июля."
+    },
+    {
+      "label": "turbo/float32/th=12/beam1",
+      "model": "large-v3-turbo",
+      "compute_type": "float32",
+      "cpu_threads": 12,
+      "beam_size": 1,
+      "load_s": 3.29,
+      "infer_s": 13.887,
+      "rtf": 5.24,
+      "transcript": "Документы принимаются до 31 июля."
+    },
+    {
+      "label": "turbo/int8_float32/th=12/beam1",
+      "model": "large-v3-turbo",
+      "compute_type": "int8_float32",
+      "cpu_threads": 12,
+      "beam_size": 1,
+      "load_s": 4.36,
+      "infer_s": 15.258,
+      "rtf": 5.758,
+      "transcript": "Документы принимаются до 31 июля."
+    },
+    {
+      "label": "small/int8/th=12/beam1",
+      "model": "small",
+      "compute_type": "int8",
+      "cpu_threads": 12,
+      "beam_size": 1,
+      "load_s": 3.83,
+      "infer_s": 3.209,
+      "rtf": 1.211,
+      "transcript": "Документы принимаются до 31 июля."
+    },
+    {
+      "label": "base/int8/th=12/beam1",
+      "model": "base",
+      "compute_type": "int8",
+      "cpu_threads": 12,
+      "beam_size": 1,
+      "load_s": 1.21,
+      "infer_s": 0.951,
+      "rtf": 0.359,
+      "transcript": "Документы принимаются до 31 июля."
+    }
+  ]
+}
