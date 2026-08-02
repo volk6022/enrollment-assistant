@@ -72,7 +72,7 @@ class RagSettings:
     rag_dense_top: int = 20        # RAG_DENSE_TOP
     rag_bm25_top: int = 20         # RAG_BM25_TOP
     rag_rrf_k: int = 60            # RAG_RRF_K
-    rag_min_score: float = 0.3     # RAG_MIN_SCORE -- below this reranker score, treat
+    rag_min_score: float = 0.85    # RAG_MIN_SCORE -- below this reranker score, treat
                                     # as "not in the knowledge base" (A-11); the actual
                                     # honest-refusal decision is downstream (dialogue/
                                     # generation), this package only carries the score.
